@@ -1,16 +1,11 @@
-use libsodium_sys;
-
 use crate::common::*;
 use byteorder::{LittleEndian, WriteBytesExt};
+use chacha20poly1305::aead::generic_array::GenericArray;
+use chacha20poly1305::aead::{Aead, NewAead, Payload};
+use chacha20poly1305::ChaCha20Poly1305;
 use std::io;
-use std::sync::atomic;
 
-// TODO: fix me
-#[cfg_attr(feature = "cargo-clippy", allow(replace_consts))]
-static mut SODIUM_INIT: atomic::AtomicUsize = atomic::ATOMIC_USIZE_INIT;
-
-pub const NETCODE_ENCRYPT_EXTA_BYTES: usize =
-    libsodium_sys::crypto_aead_chacha20poly1305_ABYTES as usize;
+pub const NETCODE_ENCRYPT_EXTA_BYTES: usize = 16;
 
 #[derive(Debug)]
 pub enum EncryptError {
@@ -26,15 +21,6 @@ impl From<io::Error> for EncryptError {
     }
 }
 
-fn init_sodium() {
-    unsafe {
-        if SODIUM_INIT.load(atomic::Ordering::Relaxed) == 0 {
-            libsodium_sys::sodium_init();
-            SODIUM_INIT.store(1, atomic::Ordering::Relaxed);
-        }
-    }
-}
-
 /// Generates a new random private key.
 pub fn generate_key() -> [u8; NETCODE_KEY_BYTES] {
     let mut key: [u8; NETCODE_KEY_BYTES] = [0; NETCODE_KEY_BYTES];
@@ -45,10 +31,7 @@ pub fn generate_key() -> [u8; NETCODE_KEY_BYTES] {
 }
 
 pub fn random_bytes(out: &mut [u8]) {
-    unsafe {
-        init_sodium();
-        libsodium_sys::randombytes_buf(out.as_mut_ptr() as _, out.len());
-    }
+    getrandom::getrandom(out).unwrap();
 }
 
 // TODO: fix me
@@ -68,31 +51,25 @@ pub fn encode(
         return Err(EncryptError::BufferSizeMismatch);
     }
 
-    let (result, written) = unsafe {
-        init_sodium();
-        let mut written: u64 = out.len() as u64;
+    let mut final_nonce = [0; 12];
+    io::Cursor::new(&mut final_nonce[4..]).write_u64::<LittleEndian>(nonce)?;
 
-        let mut final_nonce = [0; 12];
-        io::Cursor::new(&mut final_nonce[4..]).write_u64::<LittleEndian>(nonce)?;
+    let key = GenericArray::from_slice(key);
+    let nonce = GenericArray::from_slice(&final_nonce);
 
-        let result = libsodium_sys::crypto_aead_chacha20poly1305_ietf_encrypt(
-            out.as_mut_ptr(),
-            &mut written,
-            data.as_ptr(),
-            data.len() as u64,
-            additional_data.map_or(::std::ptr::null_mut(), |v| v.as_ptr()),
-            additional_data.map_or(0, |v| v.len()) as u64,
-            ::std::ptr::null(),
-            final_nonce.as_ptr(),
-            key.as_ptr(),
-        );
-
-        (result, written)
+    let payload = Payload {
+        msg: data,
+        aad: additional_data.unwrap_or_default(),
     };
 
-    match result {
-        -1 => Err(EncryptError::Failed),
-        _ => Ok(written as usize),
+    match ChaCha20Poly1305::new(key).encrypt(nonce, payload) {
+        Ok(cipher_text) => {
+            out[0..cipher_text.len()].copy_from_slice(&cipher_text);
+            Ok(cipher_text.len())
+        }
+        Err(_) => {
+            Err(EncryptError::Failed)
+        }
     }
 }
 
@@ -113,30 +90,24 @@ pub fn decode(
         return Err(EncryptError::BufferSizeMismatch);
     }
 
-    let (result, read) = unsafe {
-        init_sodium();
-        let mut read: u64 = out.len() as u64;
+    let mut final_nonce = [0; 12];
+    io::Cursor::new(&mut final_nonce[4..]).write_u64::<LittleEndian>(nonce)?;
 
-        let mut final_nonce = [0; 12];
-        io::Cursor::new(&mut final_nonce[4..]).write_u64::<LittleEndian>(nonce)?;
+    let key = GenericArray::from_slice(key);
+    let nonce = GenericArray::from_slice(&final_nonce);
 
-        let result = libsodium_sys::crypto_aead_chacha20poly1305_ietf_decrypt(
-            out.as_mut_ptr(),
-            &mut read,
-            ::std::ptr::null_mut(),
-            data.as_ptr(),
-            data.len() as u64,
-            additional_data.map_or(::std::ptr::null_mut(), |v| v.as_ptr()),
-            additional_data.map_or(0, |v| v.len()) as u64,
-            final_nonce.as_ptr(),
-            key.as_ptr(),
-        );
-
-        (result, read)
+    let payload = Payload {
+        msg: data,
+        aad: additional_data.unwrap_or_default(),
     };
 
-    match result {
-        -1 => Err(EncryptError::Failed),
-        _ => Ok(read as usize),
+    match ChaCha20Poly1305::new(key).decrypt(nonce, payload) {
+        Ok(plain_text) => {
+            out[0..plain_text.len()].copy_from_slice(&plain_text);
+            Ok(plain_text.len())
+        }
+        Err(_) => {
+            Err(EncryptError::Failed)
+        }
     }
 }
