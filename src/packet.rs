@@ -600,40 +600,6 @@ fn test_encode_decode<V>(
             assert_eq!(in_payload[i], out_packet[i]);
         }
     }
-    /*
-        unsafe {
-            #[allow(unused_variables)]
-            let lock = ::common::test::FFI_LOCK.lock().unwrap();
-
-            use capi;
-
-            let mut replay: capi::netcode_replay_protection_t = ::std::mem::uninitialized();
-            capi::netcode_replay_protection_reset(&mut replay);
-
-            let mut allowed_packets = [1; capi::NETCODE_CONNECTION_NUM_PACKETS as usize];
-
-            let final_pkey = match private_key {
-                Some(ref mut v) => {
-                    v.as_mut_ptr()
-                },
-                None => ::std::ptr::null_mut()
-            };
-
-            let result = capi::netcode_read_packet(
-                scratch.as_mut_ptr(), length as i32, //data
-                &mut sequence,
-                pkey.as_mut_ptr(), //Recv private key
-                protocol_id, //Protocol id
-                0, //Current timestamp
-                final_pkey, //Private key
-                allowed_packets.as_mut_ptr(), //Allowed packets
-                &mut replay); //Replay protection
-
-            assert!(result != ::std::ptr::null_mut());
-
-            capi::free(result);
-        }
-    */
 }
 
 #[test]
@@ -793,7 +759,7 @@ fn test_decode_challenge_token() {
 
     let client_id = 5;
     let challenge_sequence = 0xFED;
-    let mut challenge_key = crypto::generate_key();
+    let challenge_key = crypto::generate_key();
 
     let challenge_packet =
         ChallengePacket::generate(client_id, &user_data, challenge_sequence, &challenge_key)
@@ -803,38 +769,5 @@ fn test_decode_challenge_token() {
     assert_eq!(decoded.client_id, client_id);
     for i in 0..user_data.len() {
         assert_eq!(user_data[i], decoded.user_data[i]);
-    }
-
-    unsafe {
-        #[allow(unused_variables)]
-        let lock = crate::common::test::FFI_LOCK.lock().unwrap();
-
-        use crate::capi;
-
-        let mut capi_scratch = [0; NETCODE_CHALLENGE_TOKEN_BYTES];
-        capi_scratch.copy_from_slice(&challenge_packet.token_data);
-
-        let decode = capi::netcode_decrypt_challenge_token(
-            capi_scratch.as_mut_ptr(),
-            capi_scratch.len() as i32,
-            challenge_sequence,
-            challenge_key.as_mut_ptr(),
-        );
-
-        assert_eq!(decode, 1);
-
-        let mut native_token: capi::netcode_challenge_token_t = ::std::mem::uninitialized();
-
-        let serialize = capi::netcode_read_challenge_token(
-            capi_scratch.as_mut_ptr(),
-            capi_scratch.len() as i32,
-            &mut native_token,
-        );
-
-        assert_eq!(serialize, 1);
-        assert_eq!(native_token.client_id, client_id);
-        for i in 0..user_data.len() {
-            assert_eq!(user_data[i], native_token.user_data[i]);
-        }
     }
 }

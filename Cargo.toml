@@ -15,4 +15,3 @@ getrandom = "0.2"
 
 [dev-dependencies]
 env_logger = "0.7"
-lazy_static = "1.4"
