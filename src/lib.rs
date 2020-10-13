@@ -17,7 +17,7 @@
 //!
 //! # Server Example
 //! ```rust
-//! use netcode::{UdpServer, ServerEvent};
+//! use netcode_rs::{UdpServer, ServerEvent, generate_key, NETCODE_MAX_PAYLOAD_SIZE};
 //!
 //! fn run_server() {
 //!     const PROTOCOL_ID: u64 = 0xFFEE;
@@ -25,11 +25,11 @@
 //!     let mut server = UdpServer::new("127.0.0.1:0",
 //!                                     MAX_CLIENTS,
 //!                                     PROTOCOL_ID,
-//!                                     &netcode::generate_key()).unwrap();
+//!                                     &generate_key()).unwrap();
 //!
 //!     loop {
 //!         server.update(1.0 / 10.0);
-//!         let mut packet_data = [0; netcode::NETCODE_MAX_PAYLOAD_SIZE];
+//!         let mut packet_data = [0; NETCODE_MAX_PAYLOAD_SIZE];
 //!         match server.next_event(&mut packet_data) {
 //!             Ok(Some(e)) => {
 //!                 match e {
@@ -53,7 +53,7 @@
 //!
 //! # Client Example
 //! ```rust
-//! use netcode::{UdpClient, ClientEvent, ClientState, ConnectToken};
+//! use netcode_rs::{UdpClient, ClientEvent, ClientState, ConnectToken, NETCODE_MAX_PAYLOAD_SIZE};
 //! use std::io;
 //!
 //! fn run_client() {
@@ -65,7 +65,7 @@
 //!     let mut client = UdpClient::new(&token).unwrap();
 //!     loop {
 //!         client.update(1.0 / 10.0);
-//!         let mut packet_data = [0; netcode::NETCODE_MAX_PAYLOAD_SIZE];
+//!         let mut packet_data = [0; NETCODE_MAX_PAYLOAD_SIZE];
 //!         match client.next_event(&mut packet_data) {
 //!             Ok(Some(e)) => {
 //!                 match e {
@@ -91,7 +91,7 @@
 //!
 //! # Token Example
 //! ```
-//! use netcode::{self, ConnectToken};
+//! use netcode_rs::{self, ConnectToken, generate_key};
 //! use std::io;
 //!
 //! const EXPIRE_SECONDS: usize = 30;
@@ -99,7 +99,7 @@
 //!
 //! # fn get_client_id() -> u64 { 0 }
 //! # fn get_next_sequence() -> u64 { 0 }
-//! let private_key = netcode::generate_key(); //Note: You probably want to
+//! let private_key = generate_key(); //Note: You probably want to
 //!                                            //store this some where safe.
 //! let client_id = get_client_id(); //Unique u64 client id.
 //! let sequence = get_next_sequence(); //sequence passed to generate() must
@@ -119,14 +119,14 @@
 //! token.write(&mut token_data).unwrap();
 //! ```
 //! ```rust
-//! # use netcode::{UdpServer};
+//! # use netcode_rs::{UdpServer, generate_key};
 //! //Alteratively if you already have a server you can generate a token like below:
 //! const PROTOCOL_ID: u64 = 0xFFEE;
 //! const MAX_CLIENTS: usize = 32;
 //! let mut server = UdpServer::new("127.0.0.1:0",
 //!                                 MAX_CLIENTS,
 //!                                 PROTOCOL_ID,
-//!                                 &netcode::generate_key()).unwrap();
+//!                                 &generate_key()).unwrap();
 //!
 //! const EXPIRE_SECONDS: usize = 30;
 //! # fn get_client_id() -> u64 { 0 }

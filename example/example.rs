@@ -12,8 +12,8 @@
 #![feature(nll, stmt_expr_attributes)]
 #![warn(rust_2018_idioms)]
 
-use netcode::{
-    ClientEvent, ClientState, ServerEvent, UdpClient, UdpServer, NETCODE_MAX_PAYLOAD_SIZE,
+use netcode_rs::{
+    ClientEvent, ClientState, ServerEvent, UdpClient, UdpServer, generate_key, NETCODE_MAX_PAYLOAD_SIZE,
 };
 
 use std::io::{self, BufRead};
@@ -65,7 +65,7 @@ fn main() {
         "127.0.0.1:0",
         MAX_CLIENTS,
         PROTOCOL_ID,
-        &netcode::generate_key(),
+        &generate_key(),
     )
     .unwrap();
     let token = server
