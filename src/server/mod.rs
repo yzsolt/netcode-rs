@@ -1007,22 +1007,6 @@ mod test {
         }
     }
 
-    #[allow(dead_code)]
-    fn enable_logging() {
-        use env_logger::LogBuilder;
-        use log::LogLevelFilter;
-
-        LogBuilder::new()
-            .filter(None, LogLevelFilter::Trace)
-            .init()
-            .unwrap();
-
-        use crate::capi::*;
-        unsafe {
-            netcode_log_level(NETCODE_LOG_LEVEL_DEBUG as i32);
-        }
-    }
-
     #[test]
     fn test_connect_api() {
         let mut harness = TestHarness::<UdpSocket, ()>::new(None);
