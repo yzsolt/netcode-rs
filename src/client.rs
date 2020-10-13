@@ -60,8 +60,6 @@ impl Clone for ConnectSequence {
 
 /// Describes event the server receives when calling `next_event(..)`.
 #[derive(Clone, Debug)]
-// TODO: fix this
-#[cfg_attr(feature = "cargo-clippy", allow(stutter))]
 pub enum ClientEvent {
     /// Client state has changed to `State`.
     NewState(State),
@@ -94,8 +92,6 @@ where
 }
 
 /// UDP based netcode client.
-// TODO: fix this
-#[cfg_attr(feature = "cargo-clippy", allow(stutter))]
 pub type UdpClient = Client<UdpSocket, ()>;
 
 impl<I, S> ClientData<I, S>

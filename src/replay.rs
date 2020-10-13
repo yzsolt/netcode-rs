@@ -1,8 +1,6 @@
 const REPLAY_BUFFER_SIZE: usize = 256;
 const EMPTY_ENTRY: u64 = 0xFFFF_FFFF_FFFF_FFFF;
 
-// TODO: fix this
-#[cfg_attr(feature = "cargo-clippy", allow(stutter))]
 pub struct ReplayProtection {
     most_recent_sequence: u64,
     received_packet: [u64; REPLAY_BUFFER_SIZE],

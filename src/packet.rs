@@ -78,8 +78,6 @@ fn sequence_bytes_required(sequence: u64) -> usize {
 }
 
 #[derive(Debug)]
-// TODO: fix me
-#[cfg_attr(feature = "cargo-clippy", allow(stutter))]
 pub enum PacketError {
     InvalidPrivateKey,
     InvalidPacket,
@@ -249,8 +247,6 @@ pub fn encode(
     }
 }
 
-// TODO: fix this
-#[cfg_attr(feature = "cargo-clippy", allow(stutter))]
 pub struct ConnectionRequestPacket {
     pub version: [u8; NETCODE_VERSION_LEN],
     pub protocol_id: u64,
@@ -356,8 +352,6 @@ impl ChallengeToken {
         Ok(())
     }
 }
-// TODO: fix this
-#[cfg_attr(feature = "cargo-clippy", allow(stutter))]
 
 pub struct ChallengePacket {
     pub token_sequence: u64,
@@ -450,8 +444,6 @@ impl ChallengePacket {
     }
 }
 
-// TODO: fix this
-#[cfg_attr(feature = "cargo-clippy", allow(stutter))]
 pub struct ResponsePacket {
     pub token_sequence: u64,
     pub token_data: [u8; NETCODE_CHALLENGE_TOKEN_BYTES],
@@ -499,8 +491,6 @@ impl ResponsePacket {
     }
 }
 
-// TODO: fix this
-#[cfg_attr(feature = "cargo-clippy", allow(stutter))]
 pub struct KeepAlivePacket {
     pub client_idx: i32,
     pub max_clients: i32,

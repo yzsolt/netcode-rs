@@ -60,8 +60,6 @@ const NETCODE_ADDRESS_IPV6: u8 = 2;
 const NETCODE_ADDITIONAL_DATA_SIZE: usize = NETCODE_VERSION_LEN + 8 + 8;
 
 /// Token used by clients to connect and authenticate to a netcode `Server`
-// TODO: fix this
-#[cfg_attr(feature = "cargo-clippy", allow(stutter))]
 pub struct ConnectToken {
     /// Protocol ID for messages relayed by netcode.
     pub protocol: u64,

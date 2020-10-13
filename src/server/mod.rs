@@ -39,8 +39,6 @@ pub type ClientId = u64;
 
 /// Describes event the server receives when calling `next_event(..)`.
 #[derive(Debug)]
-// TODO: fix this
-#[cfg_attr(feature = "cargo-clippy", allow(stutter))]
 pub enum ServerEvent {
     /// A client has connected, contains a reference to the client that was just created. `out_packet` contains private user data from token.
     ClientConnect(ClientId),
@@ -59,8 +57,6 @@ pub enum ServerEvent {
 }
 
 /// UDP based netcode server.
-// TODO: fix this
-#[cfg_attr(feature = "cargo-clippy", allow(stutter))]
 pub type UdpServer = Server<UdpSocket, ()>;
 
 type ClientVec = Vec<Option<Connection>>;

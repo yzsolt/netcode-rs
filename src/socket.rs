@@ -2,8 +2,6 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Duration;
 
-// TODO: fix this
-#[cfg_attr(feature = "cargo-clippy", allow(stutter))]
 pub trait SocketProvider<I, S> {
     fn new_state() -> S;
     fn bind(addr: &SocketAddr, state: &mut S) -> Result<I, io::Error>;
