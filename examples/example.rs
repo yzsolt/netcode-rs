@@ -21,6 +21,8 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
+use time::OffsetDateTime;
+
 const MAX_CLIENTS: usize = 256; //Total number of clients we support
 const PROTOCOL_ID: u64 = 0x00FF_DDEE; //Unique protocol id for our application.
 const TOKEN_LIFETIME: usize = 15; //Our token lives 15 seconds.
@@ -32,7 +34,7 @@ const TICK_TIME_MS: f64 = 0.016; //Tick every 16ms
 
 //Helper function for sleeping at a regular interval
 fn sleep_for_tick(last_tick: &mut f64) -> f64 {
-    let now = time::precise_time_s();
+    let now = (OffsetDateTime::now_utc() - OffsetDateTime::unix_epoch()).as_seconds_f64();
 
     let elapsed = (now - *last_tick).min(TICK_TIME_MS);
 
