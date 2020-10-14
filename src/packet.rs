@@ -529,248 +529,251 @@ impl KeepAlivePacket {
 }
 
 #[cfg(test)]
-fn test_seq_value(v: u64) {
-    let mut scratch = [0; 8];
-    write_sequence(&mut io::Cursor::new(&mut scratch[..]), v).unwrap();
-    assert_eq!(
-        v,
-        read_sequence(
-            &mut io::Cursor::new(&scratch[..]),
-            sequence_bytes_required(v) as usize
+mod test {
+    use super::*;
+
+    fn test_seq_value(v: u64) {
+        let mut scratch = [0; 8];
+        write_sequence(&mut io::Cursor::new(&mut scratch[..]), v).unwrap();
+        assert_eq!(
+            v,
+            read_sequence(
+                &mut io::Cursor::new(&scratch[..]),
+                sequence_bytes_required(v) as usize
+            )
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_sequence() {
+        let mut bits = 0xCC;
+
+        for i in 0..8 {
+            test_seq_value(bits);
+            assert_eq!(i + 1, sequence_bytes_required(bits));
+            bits <<= 8;
+        }
+    }
+
+    #[allow(unused_variables)]
+    fn test_encode_decode<V>(
+        packet: Packet,
+        payload: Option<&[u8]>,
+        private_key: Option<[u8; NETCODE_KEY_BYTES]>,
+        verify: V,
+    ) where
+        V: Fn(Packet),
+    {
+        let sequence = if let Packet::ConnectionRequest(_) = packet {
+            0x0
+        } else {
+            0xCCDD
+        };
+
+        let protocol_id = 0xFFCC;
+        let pkey = crypto::generate_key();
+
+        let mut scratch = [0; NETCODE_MAX_PACKET_SIZE];
+        let mut out_packet = [0; NETCODE_MAX_PAYLOAD_SIZE];
+        let length = encode(
+            &mut scratch[..],
+            protocol_id,
+            &packet,
+            Some((sequence, &pkey)),
+            payload,
         )
-        .unwrap()
-    );
-}
-
-#[test]
-fn test_sequence() {
-    let mut bits = 0xCC;
-
-    for i in 0..8 {
-        test_seq_value(bits);
-        assert_eq!(i + 1, sequence_bytes_required(bits));
-        bits <<= 8;
-    }
-}
-
-#[cfg(test)]
-#[allow(unused_variables)]
-fn test_encode_decode<V>(
-    packet: Packet,
-    payload: Option<&[u8]>,
-    private_key: Option<[u8; NETCODE_KEY_BYTES]>,
-    verify: V,
-) where
-    V: Fn(Packet),
-{
-    let sequence = if let Packet::ConnectionRequest(_) = packet {
-        0x0
-    } else {
-        0xCCDD
-    };
-
-    let protocol_id = 0xFFCC;
-    let pkey = crypto::generate_key();
-
-    let mut scratch = [0; NETCODE_MAX_PACKET_SIZE];
-    let mut out_packet = [0; NETCODE_MAX_PAYLOAD_SIZE];
-    let length = encode(
-        &mut scratch[..],
-        protocol_id,
-        &packet,
-        Some((sequence, &pkey)),
-        payload,
-    )
-    .unwrap();
-    match decode(
-        &scratch[..length],
-        protocol_id,
-        Some(&pkey),
-        &mut out_packet,
-    ) {
-        Ok((s, p)) => {
-            assert_eq!(s, sequence);
-            verify(p);
-        }
-        Err(e) => assert!(false, "{:?}", e),
-    }
-
-    if let Some(in_payload) = payload {
-        for i in 0..in_payload.len() {
-            assert_eq!(in_payload[i], out_packet[i]);
-        }
-    }
-}
-
-#[test]
-fn test_conn_packet() {
-    use crate::token;
-    use std::net::SocketAddr;
-    use std::str::FromStr;
-
-    let protocol_id = 0xFFCC;
-
-    let mut nonce = token::ConnectTokenNonce::default();
-    crypto::random_bytes(&mut nonce);
-
-    let pkey = crypto::generate_key();
-
-    let token = token::ConnectToken::generate(
-        [SocketAddr::from_str("127.0.0.1:8080").unwrap()]
-            .iter()
-            .cloned(),
-        &pkey,
-        30, //Expire
-        &nonce,
-        protocol_id,
-        0xFFEE, //Client Id
-        None,
-    )
-    .unwrap();
-
-    let packet = Packet::ConnectionRequest(ConnectionRequestPacket {
-        protocol_id,
-        nonce,
-        version: NETCODE_VERSION_STRING.clone(),
-        token_expire: token.expire_utc,
-        private_data: token.private_data,
-    });
-
-    test_encode_decode(packet, None, Some(pkey), |p| match p {
-        Packet::ConnectionRequest(p) => {
-            for i in 0..p.version.len() {
-                assert_eq!(
-                    p.version[i], NETCODE_VERSION_STRING[i],
-                    "mismatch at index {}",
-                    i
-                );
+        .unwrap();
+        match decode(
+            &scratch[..length],
+            protocol_id,
+            Some(&pkey),
+            &mut out_packet,
+        ) {
+            Ok((s, p)) => {
+                assert_eq!(s, sequence);
+                verify(p);
             }
+            Err(e) => assert!(false, "{:?}", e),
+        }
 
-            assert_eq!(p.protocol_id, protocol_id);
-            assert_eq!(p.token_expire, token.expire_utc);
-            assert_eq!(p.nonce, nonce);
-
-            for i in 0..p.private_data.len() {
-                assert_eq!(p.private_data[i], token.private_data[i]);
+        if let Some(in_payload) = payload {
+            for i in 0..in_payload.len() {
+                assert_eq!(in_payload[i], out_packet[i]);
             }
         }
-        _ => assert!(false),
-    });
-}
-
-#[test]
-fn test_conn_denied_packet() {
-    test_encode_decode(Packet::ConnectionDenied, None, None, |p| match p {
-        Packet::ConnectionDenied => (),
-        _ => assert!(false),
-    });
-}
-
-#[test]
-fn test_challenge_packet() {
-    let token_sequence = 0xFFDD;
-    let mut token_data = [0; NETCODE_CHALLENGE_TOKEN_BYTES];
-    for i in 0..token_data.len() {
-        token_data[i] = i as u8;
     }
 
-    test_encode_decode(
-        Packet::Challenge(ChallengePacket {
-            token_sequence,
-            token_data,
-        }),
-        None,
-        None,
-        |p| match p {
-            Packet::Challenge(p) => {
-                assert_eq!(p.token_sequence, token_sequence);
-                for i in 0..token_data.len() {
-                    assert_eq!(p.token_data[i], token_data[i]);
+    #[test]
+    fn test_conn_packet() {
+        use crate::token;
+        use std::net::SocketAddr;
+        use std::str::FromStr;
+
+        let protocol_id = 0xFFCC;
+
+        let mut nonce = token::ConnectTokenNonce::default();
+        crypto::random_bytes(&mut nonce);
+
+        let pkey = crypto::generate_key();
+
+        let token = token::ConnectToken::generate(
+            [SocketAddr::from_str("127.0.0.1:8080").unwrap()]
+                .iter()
+                .cloned(),
+            &pkey,
+            30, //Expire
+            &nonce,
+            protocol_id,
+            0xFFEE, //Client Id
+            None,
+        )
+        .unwrap();
+
+        let packet = Packet::ConnectionRequest(ConnectionRequestPacket {
+            protocol_id,
+            nonce,
+            version: NETCODE_VERSION_STRING.clone(),
+            token_expire: token.expire_utc,
+            private_data: token.private_data,
+        });
+
+        test_encode_decode(packet, None, Some(pkey), |p| match p {
+            Packet::ConnectionRequest(p) => {
+                for i in 0..p.version.len() {
+                    assert_eq!(
+                        p.version[i], NETCODE_VERSION_STRING[i],
+                        "mismatch at index {}",
+                        i
+                    );
+                }
+
+                assert_eq!(p.protocol_id, protocol_id);
+                assert_eq!(p.token_expire, token.expire_utc);
+                assert_eq!(p.nonce, nonce);
+
+                for i in 0..p.private_data.len() {
+                    assert_eq!(p.private_data[i], token.private_data[i]);
                 }
             }
-            _ => assert!(false),
-        },
-    );
-}
-
-#[test]
-fn test_response_packet() {
-    let token_sequence = 0xFFDD;
-    let mut token_data = [0; NETCODE_CHALLENGE_TOKEN_BYTES];
-    for i in 0..token_data.len() {
-        token_data[i] = i as u8;
-    }
-
-    test_encode_decode(
-        Packet::Response(ResponsePacket {
-            token_sequence,
-            token_data,
-        }),
-        None,
-        None,
-        |p| match p {
-            Packet::Response(p) => {
-                assert_eq!(p.token_sequence, token_sequence);
-                for i in 0..token_data.len() {
-                    assert_eq!(p.token_data[i], token_data[i]);
-                }
-            }
-            _ => assert!(false),
-        },
-    );
-}
-
-#[test]
-fn test_keep_alive_packet() {
-    let client_idx = 5;
-    let max_clients = 10;
-
-    test_encode_decode(
-        Packet::KeepAlive(KeepAlivePacket {
-            client_idx,
-            max_clients,
-        }),
-        None,
-        None,
-        |p| match p {
-            Packet::KeepAlive(p) => {
-                assert_eq!(p.client_idx, client_idx);
-            }
-            _ => assert!(false),
-        },
-    );
-}
-
-#[test]
-fn test_payload_packet() {
-    for i in 1..NETCODE_MAX_PAYLOAD_SIZE {
-        let data = (0..i).map(|v| v as u8).collect::<Vec<u8>>();
-
-        test_encode_decode(Packet::Payload(i), Some(&data[..]), None, |p| match p {
-            Packet::Payload(c) => assert_eq!(c, i),
             _ => assert!(false),
         });
     }
-}
 
-#[test]
-fn test_decode_challenge_token() {
-    let mut user_data = [0; NETCODE_USER_DATA_BYTES];
-    for i in 0..user_data.len() {
-        user_data[i] = i as u8;
+    #[test]
+    fn test_conn_denied_packet() {
+        test_encode_decode(Packet::ConnectionDenied, None, None, |p| match p {
+            Packet::ConnectionDenied => (),
+            _ => assert!(false),
+        });
     }
 
-    let client_id = 5;
-    let challenge_sequence = 0xFED;
-    let challenge_key = crypto::generate_key();
+    #[test]
+    fn test_challenge_packet() {
+        let token_sequence = 0xFFDD;
+        let mut token_data = [0; NETCODE_CHALLENGE_TOKEN_BYTES];
+        for i in 0..token_data.len() {
+            token_data[i] = i as u8;
+        }
 
-    let challenge_packet =
-        ChallengePacket::generate(client_id, &user_data, challenge_sequence, &challenge_key)
-            .unwrap();
+        test_encode_decode(
+            Packet::Challenge(ChallengePacket {
+                token_sequence,
+                token_data,
+            }),
+            None,
+            None,
+            |p| match p {
+                Packet::Challenge(p) => {
+                    assert_eq!(p.token_sequence, token_sequence);
+                    for i in 0..token_data.len() {
+                        assert_eq!(p.token_data[i], token_data[i]);
+                    }
+                }
+                _ => assert!(false),
+            },
+        );
+    }
 
-    let decoded = challenge_packet.decode(&challenge_key).unwrap();
-    assert_eq!(decoded.client_id, client_id);
-    for i in 0..user_data.len() {
-        assert_eq!(user_data[i], decoded.user_data[i]);
+    #[test]
+    fn test_response_packet() {
+        let token_sequence = 0xFFDD;
+        let mut token_data = [0; NETCODE_CHALLENGE_TOKEN_BYTES];
+        for i in 0..token_data.len() {
+            token_data[i] = i as u8;
+        }
+
+        test_encode_decode(
+            Packet::Response(ResponsePacket {
+                token_sequence,
+                token_data,
+            }),
+            None,
+            None,
+            |p| match p {
+                Packet::Response(p) => {
+                    assert_eq!(p.token_sequence, token_sequence);
+                    for i in 0..token_data.len() {
+                        assert_eq!(p.token_data[i], token_data[i]);
+                    }
+                }
+                _ => assert!(false),
+            },
+        );
+    }
+
+    #[test]
+    fn test_keep_alive_packet() {
+        let client_idx = 5;
+        let max_clients = 10;
+
+        test_encode_decode(
+            Packet::KeepAlive(KeepAlivePacket {
+                client_idx,
+                max_clients,
+            }),
+            None,
+            None,
+            |p| match p {
+                Packet::KeepAlive(p) => {
+                    assert_eq!(p.client_idx, client_idx);
+                }
+                _ => assert!(false),
+            },
+        );
+    }
+
+    #[test]
+    fn test_payload_packet() {
+        for i in 1..NETCODE_MAX_PAYLOAD_SIZE {
+            let data = (0..i).map(|v| v as u8).collect::<Vec<u8>>();
+
+            test_encode_decode(Packet::Payload(i), Some(&data[..]), None, |p| match p {
+                Packet::Payload(c) => assert_eq!(c, i),
+                _ => assert!(false),
+            });
+        }
+    }
+
+    #[test]
+    fn test_decode_challenge_token() {
+        let mut user_data = [0; NETCODE_USER_DATA_BYTES];
+        for i in 0..user_data.len() {
+            user_data[i] = i as u8;
+        }
+
+        let client_id = 5;
+        let challenge_sequence = 0xFED;
+        let challenge_key = crypto::generate_key();
+
+        let challenge_packet =
+            ChallengePacket::generate(client_id, &user_data, challenge_sequence, &challenge_key)
+                .unwrap();
+
+        let decoded = challenge_packet.decode(&challenge_key).unwrap();
+        assert_eq!(decoded.client_id, client_id);
+        for i in 0..user_data.len() {
+            assert_eq!(user_data[i], decoded.user_data[i]);
+        }
     }
 }

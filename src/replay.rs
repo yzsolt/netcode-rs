@@ -53,40 +53,45 @@ impl ReplayProtection {
     }
 }
 
-#[test]
-fn test_replay_protection() {
-    for _ in 0..2 {
-        let mut replay_protection = ReplayProtection::new();
+#[cfg(test)]
+mod test {
+    use super::*;
 
-        assert_eq!(replay_protection.most_recent_sequence, 0);
+    #[test]
+    fn test_replay_protection() {
+        for _ in 0..2 {
+            let mut replay_protection = ReplayProtection::new();
 
-        // sequence numbers with high bit set should be ignored
-        assert!(!replay_protection.packet_already_received(1 << 63));
-        assert_eq!(replay_protection.most_recent_sequence, 0);
+            assert_eq!(replay_protection.most_recent_sequence, 0);
 
-        // the first time we receive packets, they should not be already received
-        const MAX_SEQUENCE: u64 = REPLAY_BUFFER_SIZE as u64 * 4;
+            // sequence numbers with high bit set should be ignored
+            assert!(!replay_protection.packet_already_received(1 << 63));
+            assert_eq!(replay_protection.most_recent_sequence, 0);
 
-        for sequence in 0..MAX_SEQUENCE {
-            assert!(!replay_protection.packet_already_received(sequence));
-        }
+            // the first time we receive packets, they should not be already received
+            const MAX_SEQUENCE: u64 = REPLAY_BUFFER_SIZE as u64 * 4;
 
-        // old packets outside buffer should be considered already received
-        assert!(replay_protection.packet_already_received(0));
+            for sequence in 0..MAX_SEQUENCE {
+                assert!(!replay_protection.packet_already_received(sequence));
+            }
 
-        // packets received a second time should be flagged already received
-        for sequence in MAX_SEQUENCE - 10..MAX_SEQUENCE {
-            assert!(replay_protection.packet_already_received(sequence));
-        }
+            // old packets outside buffer should be considered already received
+            assert!(replay_protection.packet_already_received(0));
 
-        // jumping ahead to a much higher sequence should be considered not already received
-        assert!(
-            !replay_protection.packet_already_received(MAX_SEQUENCE + REPLAY_BUFFER_SIZE as u64)
-        );
+            // packets received a second time should be flagged already received
+            for sequence in MAX_SEQUENCE - 10..MAX_SEQUENCE {
+                assert!(replay_protection.packet_already_received(sequence));
+            }
 
-        // old packets should be considered already received
-        for sequence in 0..MAX_SEQUENCE {
-            assert!(replay_protection.packet_already_received(sequence));
+            // jumping ahead to a much higher sequence should be considered not already received
+            assert!(
+                !replay_protection.packet_already_received(MAX_SEQUENCE + REPLAY_BUFFER_SIZE as u64)
+            );
+
+            // old packets should be considered already received
+            for sequence in 0..MAX_SEQUENCE {
+                assert!(replay_protection.packet_already_received(sequence));
+            }
         }
     }
 }

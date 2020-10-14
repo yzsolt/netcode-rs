@@ -609,90 +609,94 @@ impl<'a> ExactSizeIterator for HostIterator<'a> {
 }
 
 #[cfg(test)]
-pub const NETCODE_CONNECT_TOKEN_BYTES: usize = 2048;
+mod test {
+    use super::*;
 
-#[test]
-fn read_write() {
-    let mut private_key = [0; NETCODE_KEY_BYTES];
-    crypto::random_bytes(&mut private_key);
+    const NETCODE_CONNECT_TOKEN_BYTES: usize = 2048;
 
-    let mut user_data = [0; NETCODE_USER_DATA_BYTES];
-    crypto::random_bytes(&mut user_data);
+    #[test]
+    fn read_write() {
+        let mut private_key = [0; NETCODE_KEY_BYTES];
+        crypto::random_bytes(&mut private_key);
 
-    let expire = 30;
+        let mut user_data = [0; NETCODE_USER_DATA_BYTES];
+        crypto::random_bytes(&mut user_data);
 
-    let mut nonce = ConnectTokenNonce::default();
-    crypto::random_bytes(&mut nonce);
+        let expire = 30;
 
-    let protocol = 0x112233445566;
-    let client_id = 0x665544332211;
+        let mut nonce = ConnectTokenNonce::default();
+        crypto::random_bytes(&mut nonce);
 
-    let token = ConnectToken::generate_with_string(
-        ["127.0.0.1:8080"].iter().cloned(),
-        &private_key,
-        expire,
-        &nonce,
-        protocol,
-        client_id,
-        Some(&user_data),
-    )
-    .unwrap();
+        let protocol = 0x112233445566;
+        let client_id = 0x665544332211;
 
-    let mut scratch = [0; NETCODE_CONNECT_TOKEN_BYTES];
-    token.write(&mut io::Cursor::new(&mut scratch[..])).unwrap();
+        let token = ConnectToken::generate_with_string(
+            ["127.0.0.1:8080"].iter().cloned(),
+            &private_key,
+            expire,
+            &nonce,
+            protocol,
+            client_id,
+            Some(&user_data),
+        )
+        .unwrap();
 
-    let read = ConnectToken::read(&mut io::Cursor::new(&scratch[..])).unwrap();
+        let mut scratch = [0; NETCODE_CONNECT_TOKEN_BYTES];
+        token.write(&mut io::Cursor::new(&mut scratch[..])).unwrap();
 
-    assert_eq!(read.hosts, token.hosts);
-    for i in 0..read.private_data.len() {
-        assert_eq!(
-            read.private_data[i], token.private_data[i],
-            "Mismatch at index {}",
-            i
-        );
+        let read = ConnectToken::read(&mut io::Cursor::new(&scratch[..])).unwrap();
+
+        assert_eq!(read.hosts, token.hosts);
+        for i in 0..read.private_data.len() {
+            assert_eq!(
+                read.private_data[i], token.private_data[i],
+                "Mismatch at index {}",
+                i
+            );
+        }
+        assert_eq!(read.expire_utc, token.expire_utc);
+        assert_eq!(read.create_utc, token.create_utc);
+        assert_eq!(read.nonce, token.nonce);
+        assert_eq!(read.protocol, token.protocol);
+        assert_eq!(read.timeout_sec, NETCODE_TIMEOUT_SECONDS);
     }
-    assert_eq!(read.expire_utc, token.expire_utc);
-    assert_eq!(read.create_utc, token.create_utc);
-    assert_eq!(read.nonce, token.nonce);
-    assert_eq!(read.protocol, token.protocol);
-    assert_eq!(read.timeout_sec, NETCODE_TIMEOUT_SECONDS);
-}
 
-#[test]
-fn decode() {
-    let mut private_key = [0; NETCODE_KEY_BYTES];
-    crypto::random_bytes(&mut private_key);
+    #[test]
+    fn decode() {
+        let mut private_key = [0; NETCODE_KEY_BYTES];
+        crypto::random_bytes(&mut private_key);
 
-    let mut user_data = [0; NETCODE_USER_DATA_BYTES];
-    crypto::random_bytes(&mut user_data);
+        let mut user_data = [0; NETCODE_USER_DATA_BYTES];
+        crypto::random_bytes(&mut user_data);
 
-    let expire = 30;
+        let expire = 30;
 
-    let mut nonce = ConnectTokenNonce::default();
-    crypto::random_bytes(&mut nonce);
+        let mut nonce = ConnectTokenNonce::default();
+        crypto::random_bytes(&mut nonce);
 
-    let protocol = 0x112233445566;
-    let client_id = 0x665544332211;
+        let protocol = 0x112233445566;
+        let client_id = 0x665544332211;
 
-    let mut token = ConnectToken::generate_with_string(
-        ["127.0.0.1:8080"].iter().cloned(),
-        &private_key,
-        expire,
-        &nonce,
-        protocol,
-        client_id,
-        Some(&user_data),
-    )
-    .unwrap();
+        let mut token = ConnectToken::generate_with_string(
+            ["127.0.0.1:8080"].iter().cloned(),
+            &private_key,
+            expire,
+            &nonce,
+            protocol,
+            client_id,
+            Some(&user_data),
+        )
+        .unwrap();
 
-    let decoded = token.decode(&private_key).unwrap();
+        let decoded = token.decode(&private_key).unwrap();
 
-    assert_eq!(decoded.hosts, token.hosts);
-    assert_eq!(decoded.client_id, client_id);
-    assert_eq!(decoded.client_to_server_key, token.client_to_server_key);
-    assert_eq!(decoded.server_to_client_key, token.server_to_client_key);
+        assert_eq!(decoded.hosts, token.hosts);
+        assert_eq!(decoded.client_id, client_id);
+        assert_eq!(decoded.client_to_server_key, token.client_to_server_key);
+        assert_eq!(decoded.server_to_client_key, token.server_to_client_key);
 
-    for i in 0..user_data.len() {
-        assert_eq!(decoded.user_data[i], user_data[i]);
+        for i in 0..user_data.len() {
+            assert_eq!(decoded.user_data[i], user_data[i]);
+        }
     }
 }
