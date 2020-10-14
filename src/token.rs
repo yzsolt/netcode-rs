@@ -533,8 +533,6 @@ impl HostList {
     where
         W: io::Write,
     {
-        // TODO: fix me
-        #[cfg_attr(feature = "cargo-clippy", allow(cast_possible_truncation))]
         out.write_u32::<LittleEndian>(self.get().len() as u32)?;
         for host in self.get() {
             match host {
