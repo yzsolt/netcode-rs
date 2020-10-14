@@ -144,7 +144,7 @@ fn sequence_to_nonce(sequence: u64) -> [u8; 12] {
 pub fn decode(
     data: &[u8],
     protocol_id: u64,
-    private_key: Option<&[u8; NETCODE_KEY_BYTES]>,
+    private_key: Option<&Key>,
     out: &mut [u8; NETCODE_MAX_PAYLOAD_SIZE],
 ) -> Result<(u64, Packet), PacketError> {
     let source = &mut io::Cursor::new(data);
@@ -196,7 +196,7 @@ pub fn encode(
     out: &mut [u8],
     protocol_id: u64,
     packet: &Packet,
-    crypt_info: Option<(u64, &[u8; NETCODE_KEY_BYTES])>,
+    crypt_info: Option<(u64, &Key)>,
     payload: Option<&[u8]>,
 ) -> Result<usize, PacketError> {
     if let Packet::ConnectionRequest(ref req) = *packet {
@@ -385,7 +385,7 @@ impl ChallengePacket {
         client_id: u64,
         connect_user_data: &[u8; NETCODE_USER_DATA_BYTES],
         challenge_sequence: u64,
-        challenge_key: &[u8; NETCODE_KEY_BYTES],
+        challenge_key: &Key,
     ) -> Result<Self, ChallengeEncodeError> {
         let token = ChallengeToken::generate(client_id, connect_user_data);
         let mut scratch = [0; NETCODE_CHALLENGE_TOKEN_BYTES - NETCODE_MAC_BYTES];
@@ -411,7 +411,7 @@ impl ChallengePacket {
     #[cfg(test)]
     pub fn decode(
         &self,
-        challenge_key: &[u8; NETCODE_KEY_BYTES],
+        challenge_key: &Key,
     ) -> Result<ChallengeToken, ChallengeEncodeError> {
         let mut decoded = [0; NETCODE_CHALLENGE_TOKEN_BYTES];
         let nonce = sequence_to_nonce(self.token_sequence);
@@ -474,7 +474,7 @@ impl ResponsePacket {
 
     pub fn decode(
         &self,
-        challenge_key: &[u8; NETCODE_KEY_BYTES],
+        challenge_key: &Key,
     ) -> Result<ChallengeToken, ChallengeEncodeError> {
         let mut decoded = [0; NETCODE_CHALLENGE_TOKEN_BYTES];
         let nonce = sequence_to_nonce(self.token_sequence);
@@ -560,7 +560,7 @@ mod test {
     fn test_encode_decode<V>(
         packet: Packet,
         payload: Option<&[u8]>,
-        private_key: Option<[u8; NETCODE_KEY_BYTES]>,
+        private_key: Option<Key>,
         verify: V,
     ) where
         V: Fn(Packet),

@@ -110,12 +110,12 @@ struct ServerInternal<I, S> {
     listen_addr: SocketAddr,
 
     protocol_id: u64,
-    connect_key: [u8; NETCODE_KEY_BYTES],
+    connect_key: Key,
 
     time: f64,
 
     challenge_sequence: u64,
-    challenge_key: [u8; NETCODE_KEY_BYTES],
+    challenge_key: Key,
 
     client_event_idx: usize,
 }
@@ -135,7 +135,7 @@ where
         local_addr: A,
         max_clients: u32,
         protocol_id: u64,
-        private_key: &[u8; NETCODE_KEY_BYTES],
+        private_key: &Key,
     ) -> Result<Self, CreateError>
     where
         A: ToSocketAddrs,
@@ -144,9 +144,6 @@ where
         let mut socket_state = I::new_state();
         match I::bind(&bind_addr, &mut socket_state) {
             Ok(s) => {
-                let mut key_copy: [u8; NETCODE_KEY_BYTES] = [0; NETCODE_KEY_BYTES];
-                key_copy.copy_from_slice(private_key);
-
                 let clients = vec![None; max_clients as usize];
 
                 trace!("Started server on {:?}", s.local_addr().unwrap());
@@ -158,7 +155,7 @@ where
                         protocol_id,
                         listen_socket: s,
                         listen_addr: bind_addr,
-                        connect_key: key_copy,
+                        connect_key: *private_key,
                         time: 0.0,
                         challenge_sequence: 0,
                         challenge_key: crypto::generate_key(),
@@ -491,7 +488,7 @@ where
     fn send_denied_packet(
         &mut self,
         addr: &SocketAddr,
-        key: &[u8; NETCODE_KEY_BYTES],
+        key: &Key,
     ) -> Result<(), SendError> {
         //id + sequence
         let mut packet = [0; 1 + 8];
@@ -739,7 +736,7 @@ mod test {
     {
         next_sequence: u64,
         server: Server<I, S>,
-        private_key: [u8; NETCODE_KEY_BYTES],
+        private_key: Key,
         socket: I,
         connect_token: token::ConnectToken,
     }
@@ -774,7 +771,7 @@ mod test {
         }
 
         pub fn generate_connect_token(
-            private_key: &[u8; NETCODE_KEY_BYTES],
+            private_key: &Key,
             addr: &str,
         ) -> token::ConnectToken {
             let mut nonce = token::ConnectTokenNonce::default();
@@ -792,7 +789,7 @@ mod test {
             .unwrap()
         }
 
-        pub fn replace_connect_token(&mut self, addr: &str, key: Option<&[u8; NETCODE_KEY_BYTES]>) {
+        pub fn replace_connect_token(&mut self, addr: &str, key: Option<&Key>) {
             self.connect_token =
                 Self::generate_connect_token(key.unwrap_or(&self.private_key), addr);
         }

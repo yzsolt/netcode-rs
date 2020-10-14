@@ -22,8 +22,8 @@ impl From<io::Error> for EncryptError {
 }
 
 /// Generates a new random private key.
-pub fn generate_key() -> [u8; NETCODE_KEY_BYTES] {
-    let mut key: [u8; NETCODE_KEY_BYTES] = [0; NETCODE_KEY_BYTES];
+pub fn generate_key() -> Key {
+    let mut key = Key::default();
 
     random_bytes(&mut key);
 
@@ -39,12 +39,8 @@ pub fn encode<T: Aead + NewAead>(
     data: &[u8],
     additional_data: Option<&[u8]>,
     nonce: &Nonce::<T::NonceSize>,
-    key: &[u8; NETCODE_KEY_BYTES],
+    key: &Key,
 ) -> Result<usize, EncryptError> {
-    if key.len() != NETCODE_KEY_BYTES {
-        return Err(EncryptError::InvalidPublicKeySize);
-    }
-
     if out.len() < data.len() + NETCODE_ENCRYPT_EXTA_BYTES {
         return Err(EncryptError::BufferSizeMismatch);
     }
@@ -72,12 +68,8 @@ pub fn decode<T: Aead + NewAead>(
     data: &[u8],
     additional_data: Option<&[u8]>,
     nonce: &Nonce::<T::NonceSize>,
-    key: &[u8; NETCODE_KEY_BYTES],
+    key: &Key,
 ) -> Result<usize, EncryptError> {
-    if key.len() != NETCODE_KEY_BYTES {
-        return Err(EncryptError::InvalidPublicKeySize);
-    }
-
     if out.len() < data.len() - NETCODE_ENCRYPT_EXTA_BYTES {
         return Err(EncryptError::BufferSizeMismatch);
     }

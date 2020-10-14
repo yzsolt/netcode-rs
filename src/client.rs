@@ -490,7 +490,7 @@ mod test {
         }
 
         pub fn generate_connect_token(
-            private_key: &[u8; NETCODE_KEY_BYTES],
+            private_key: &Key,
             addr: SocketAddr,
         ) -> token::ConnectToken {
             let mut nonce = token::ConnectTokenNonce::default();

@@ -44,8 +44,8 @@ impl KeepAliveState {
 #[derive(Clone)]
 pub struct Channel {
     keep_alive: KeepAliveState,
-    send_key: [u8; NETCODE_KEY_BYTES],
-    recv_key: [u8; NETCODE_KEY_BYTES],
+    send_key: Key,
+    recv_key: Key,
     replay_protection: ReplayProtection,
     next_sequence: u64,
     addr: SocketAddr,
@@ -62,8 +62,8 @@ pub enum UpdateResult {
 
 impl Channel {
     pub fn new(
-        send_key: &[u8; NETCODE_KEY_BYTES],
-        recv_key: &[u8; NETCODE_KEY_BYTES],
+        send_key: &Key,
+        recv_key: &Key,
         addr: &SocketAddr,
         protocol_id: u64,
         client_idx: u32,

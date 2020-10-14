@@ -81,9 +81,9 @@ pub struct ConnectToken {
     /// List of hosts this token supports connecting to.
     pub hosts: HostList,
     /// Private key for client -> server communcation.
-    pub client_to_server_key: [u8; NETCODE_KEY_BYTES],
+    pub client_to_server_key: Key,
     /// Private key for server -> client communcation.
-    pub server_to_client_key: [u8; NETCODE_KEY_BYTES],
+    pub server_to_client_key: Key,
     /// Time in seconds connection should wait before disconnecting
     pub timeout_sec: i32,
 }
@@ -111,9 +111,9 @@ pub struct PrivateData {
     /// Secondary host list to authoritatively determine which hosts clients can connect to.
     pub hosts: HostList,
     /// Private key for client -> server communcation.
-    pub client_to_server_key: [u8; NETCODE_KEY_BYTES],
+    pub client_to_server_key: Key,
     /// Private key for server -> client communcation.
-    pub server_to_client_key: [u8; NETCODE_KEY_BYTES],
+    pub server_to_client_key: Key,
     /// Server-specific user data.
     pub user_data: [u8; NETCODE_USER_DATA_BYTES],
 }
@@ -173,7 +173,7 @@ impl ConnectToken {
     /// `user_data`: Client specific userdata.
     pub fn generate_with_string<H, I>(
         hosts: H,
-        private_key: &[u8; NETCODE_KEY_BYTES],
+        private_key: &Key,
         expire_sec: usize,
         nonce: &ConnectTokenNonce,
         protocol: u64,
@@ -223,7 +223,7 @@ impl ConnectToken {
     /// `user_data`: Client specific userdata.
     pub fn generate<H>(
         hosts: H,
-        private_key: &[u8; NETCODE_KEY_BYTES],
+        private_key: &Key,
         expire_sec: usize,
         nonce: &ConnectTokenNonce,
         protocol: u64,
@@ -250,7 +250,7 @@ impl ConnectToken {
 
     fn generate_internal<H>(
         hosts: H,
-        private_key: &[u8; NETCODE_KEY_BYTES],
+        private_key: &Key,
         expire_sec: usize,
         nonce: &ConnectTokenNonce,
         protocol: u64,
@@ -285,7 +285,7 @@ impl ConnectToken {
     /// `private_key` - Server's private key used to generate this token.
     pub fn decode(
         &mut self,
-        private_key: &[u8; NETCODE_KEY_BYTES],
+        private_key: &Key,
     ) -> Result<PrivateData, DecodeError> {
         PrivateData::decode(
             &self.private_data,
@@ -342,10 +342,10 @@ impl ConnectToken {
 
         let hosts = HostList::read(source)?;
 
-        let mut client_to_server_key = [0; NETCODE_KEY_BYTES];
+        let mut client_to_server_key = Key::default();
         source.read_exact(&mut client_to_server_key)?;
 
-        let mut server_to_client_key = [0; NETCODE_KEY_BYTES];
+        let mut server_to_client_key = Key::default();
         source.read_exact(&mut server_to_client_key)?;
 
         Ok(Self {
@@ -397,7 +397,7 @@ impl PrivateData {
         protocol_id: u64,
         expire_utc: u64,
         nonce: &ConnectTokenNonce,
-        private_key: &[u8; NETCODE_KEY_BYTES],
+        private_key: &Key,
     ) -> Result<Self, DecodeError> {
         let additional_data = generate_additional_data(protocol_id, expire_utc)?;
         let mut decoded =
@@ -420,7 +420,7 @@ impl PrivateData {
         protocol_id: u64,
         expire_utc: u64,
         nonce: &ConnectTokenNonce,
-        private_key: &[u8; NETCODE_KEY_BYTES],
+        private_key: &Key,
     ) -> Result<(), GenerateError> {
         let additional_data = generate_additional_data(protocol_id, expire_utc)?;
         let mut scratch =
@@ -461,10 +461,10 @@ impl PrivateData {
         let client_id = source.read_u64::<LittleEndian>()?;
         let hosts = HostList::read(source)?;
 
-        let mut client_to_server_key = [0; NETCODE_KEY_BYTES];
+        let mut client_to_server_key = Key::default();
         source.read_exact(&mut client_to_server_key)?;
 
-        let mut server_to_client_key = [0; NETCODE_KEY_BYTES];
+        let mut server_to_client_key = Key::default();
         source.read_exact(&mut server_to_client_key)?;
 
         let mut user_data = [0; NETCODE_USER_DATA_BYTES];
@@ -616,7 +616,7 @@ mod test {
 
     #[test]
     fn read_write() {
-        let mut private_key = [0; NETCODE_KEY_BYTES];
+        let mut private_key = Key::default();
         crypto::random_bytes(&mut private_key);
 
         let mut user_data = [0; NETCODE_USER_DATA_BYTES];
@@ -663,7 +663,7 @@ mod test {
 
     #[test]
     fn decode() {
-        let mut private_key = [0; NETCODE_KEY_BYTES];
+        let mut private_key = Key::default();
         crypto::random_bytes(&mut private_key);
 
         let mut user_data = [0; NETCODE_USER_DATA_BYTES];
