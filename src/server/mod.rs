@@ -246,23 +246,17 @@ where
             return Err(UpdateError::PacketBufferTooSmall);
         }
 
-        // TODO: restructure
-        #[cfg_attr(feature = "cargo-clippy", allow(never_loop))]
-        loop {
-            let mut scratch = [0; NETCODE_MAX_PACKET_SIZE];
-            let result = match self.internal.listen_socket.recv_from(&mut scratch) {
-                Ok((len, addr)) => self.handle_io(&addr, &scratch[..len], out_packet),
-                Err(e) => match e.kind() {
-                    io::ErrorKind::WouldBlock => Ok(None),
-                    _ => Err(RecvError::SocketError(e).into()),
-                },
-            };
+        let mut scratch = [0; NETCODE_MAX_PACKET_SIZE];
+        let result = match self.internal.listen_socket.recv_from(&mut scratch) {
+            Ok((len, addr)) => self.handle_io(&addr, &scratch[..len], out_packet),
+            Err(e) => match e.kind() {
+                io::ErrorKind::WouldBlock => Ok(None),
+                _ => Err(RecvError::SocketError(e).into()),
+            },
+        };
 
-            if let Ok(None) = result {
-                break;
-            } else {
-                return result;
-            }
+        if result.is_err() || result.as_ref().unwrap().is_some() {
+            return result;
         }
 
         loop {
