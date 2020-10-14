@@ -3,7 +3,6 @@ use crate::crypto;
 /// Key for the `ChaCha20Poly1305` and `XChaCha20Poly1305` AEAD algorithms used for encryption
 pub type Key = [u8; 32];
 
-pub const NETCODE_MAC_BYTES: usize = 16;
 /// Maximum size of userdata included in `ConnectToken`.
 pub const NETCODE_USER_DATA_BYTES: usize = 256;
 pub const NETCODE_CONNECT_TOKEN_PRIVATE_BYTES: usize = 1024;

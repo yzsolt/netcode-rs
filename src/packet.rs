@@ -387,8 +387,10 @@ impl ChallengePacket {
         challenge_sequence: u64,
         challenge_key: &Key,
     ) -> Result<Self, ChallengeEncodeError> {
+        const MAC_BYTES: usize = 16;
+
         let token = ChallengeToken::generate(client_id, connect_user_data);
-        let mut scratch = [0; NETCODE_CHALLENGE_TOKEN_BYTES - NETCODE_MAC_BYTES];
+        let mut scratch = [0; NETCODE_CHALLENGE_TOKEN_BYTES - MAC_BYTES];
         token.write(&mut io::Cursor::new(&mut scratch[..]))?;
 
         let nonce = sequence_to_nonce(challenge_sequence);
