@@ -15,8 +15,6 @@ const PACKET_KEEPALIVE: u8 = 4;
 const PACKET_PAYLOAD: u8 = 5;
 const PACKET_DISCONNECT: u8 = 6;
 
-// TODO: fix this
-#[cfg_attr(feature = "cargo-clippy", allow(large_enum_variant))]
 pub enum Packet {
     ConnectionRequest(ConnectionRequestPacket),
     ConnectionDenied,

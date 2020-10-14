@@ -32,16 +32,12 @@ pub enum State {
     Connected,
 }
 
-// TODO: need to find out why these are 64
-#[cfg_attr(feature = "cargo-clippy", allow(large_enum_variant))]
 enum InternalState {
     Connecting(usize, ConnectSequence),
     Connected,
     Disconnected,
 }
 
-// TODO: need to find out why these are 64
-#[cfg_attr(feature = "cargo-clippy", allow(large_enum_variant))]
 enum ConnectSequence {
     SendingToken,
     SendingChallenge(u64, [u8; NETCODE_CHALLENGE_TOKEN_BYTES]),
