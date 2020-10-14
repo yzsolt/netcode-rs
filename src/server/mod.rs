@@ -118,8 +118,6 @@ struct ServerInternal<I, S> {
     challenge_key: [u8; NETCODE_KEY_BYTES],
 
     client_event_idx: usize,
-
-    token_sequence: u64,
 }
 
 enum TickResult {
@@ -165,7 +163,6 @@ where
                         challenge_sequence: 0,
                         challenge_key: crypto::generate_key(),
                         client_event_idx: 0,
-                        token_sequence: 0,
                     },
                 })
             }
@@ -184,19 +181,20 @@ where
         client_id: u64,
         user_data: Option<&[u8; NETCODE_USER_DATA_BYTES]>,
     ) -> Result<token::ConnectToken, token::GenerateError> {
-        self.internal.token_sequence += 1;
-
         let addr = if self.internal.listen_addr.port() == 0 {
             self.get_local_addr()?
         } else {
             self.internal.listen_addr
         };
 
+        let mut nonce = token::ConnectTokenNonce::default();
+        crypto::random_bytes(&mut nonce);
+
         token::ConnectToken::generate(
             [addr].iter().cloned(),
             &self.internal.connect_key,
             expire_secs,
-            self.internal.token_sequence,
+            &nonce,
             self.internal.protocol_id,
             client_id,
             user_data,
@@ -535,7 +533,7 @@ where
             &req.private_data,
             self.protocol_id,
             req.token_expire,
-            req.sequence,
+            &req.nonce,
             &self.connect_key,
         ) {
             let has_host = v.hosts.get().any(|thost| {
@@ -779,11 +777,14 @@ mod test {
             private_key: &[u8; NETCODE_KEY_BYTES],
             addr: &str,
         ) -> token::ConnectToken {
+            let mut nonce = token::ConnectTokenNonce::default();
+            crypto::random_bytes(&mut nonce);
+
             token::ConnectToken::generate(
                 [Self::str_to_addr(addr)].iter().cloned(),
                 private_key,
                 30, //Expire
-                0,
+                &nonce,
                 PROTOCOL_ID,
                 CLIENT_ID, //Client Id
                 None,
@@ -819,7 +820,7 @@ mod test {
                 version: NETCODE_VERSION_STRING.clone(),
                 protocol_id: PROTOCOL_ID,
                 token_expire: self.connect_token.expire_utc,
-                sequence: self.connect_token.sequence,
+                nonce: self.connect_token.nonce,
                 private_data,
             });
 

@@ -1,4 +1,8 @@
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
+
+use chacha20poly1305::aead::Nonce;
+use chacha20poly1305::XChaCha20Poly1305;
+
 use std::io;
 use std::io::Write;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
@@ -59,6 +63,9 @@ const NETCODE_ADDRESS_IPV6: u8 = 2;
 
 const NETCODE_ADDITIONAL_DATA_SIZE: usize = NETCODE_VERSION_LEN + 8 + 8;
 
+/// Nonce for encrypting private connect token data using the `XChaCha20Poly1305` AEAD primitive
+pub type ConnectTokenNonce = [u8; 24];
+
 /// Token used by clients to connect and authenticate to a netcode `Server`
 pub struct ConnectToken {
     /// Protocol ID for messages relayed by netcode.
@@ -67,8 +74,8 @@ pub struct ConnectToken {
     pub create_utc: u64,
     /// Token expire time in ms from unix epoch.
     pub expire_utc: u64,
-    /// Nonce sequence for decoding private data.
-    pub sequence: u64,
+    /// Nonce for decoding private data.
+    pub nonce: ConnectTokenNonce,
     /// Private data encryped with server's private key(separate from client <-> server keys).
     pub private_data: [u8; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES],
     /// List of hosts this token supports connecting to.
@@ -87,7 +94,7 @@ impl Clone for ConnectToken {
             protocol: self.protocol,
             create_utc: self.create_utc,
             expire_utc: self.expire_utc,
-            sequence: self.sequence,
+            nonce: self.nonce,
             private_data: self.private_data,
             hosts: self.hosts.clone(),
             client_to_server_key: self.client_to_server_key,
@@ -157,7 +164,7 @@ impl ConnectToken {
     ///
     /// `expire_sec`: How long this token is valid for in seconds.
     ///
-    /// `sequence`: Sequence nonce to use, this should always be unique per server, per token. Use a continously incrementing counter should be sufficient for most cases.
+    /// `nonce`: Nonce to use. Should be randomly generated for every token.
     ///
     /// `protocol`: Client specific protocol.
     ///
@@ -168,7 +175,7 @@ impl ConnectToken {
         hosts: H,
         private_key: &[u8; NETCODE_KEY_BYTES],
         expire_sec: usize,
-        sequence: u64,
+        nonce: &ConnectTokenNonce,
         protocol: u64,
         client_id: u64,
         user_data: Option<&[u8; NETCODE_USER_DATA_BYTES]>,
@@ -192,7 +199,7 @@ impl ConnectToken {
             host_list,
             private_key,
             expire_sec,
-            sequence,
+            nonce,
             protocol,
             client_id,
             user_data,
@@ -207,7 +214,7 @@ impl ConnectToken {
     ///
     /// `expire_sec`: How long this token is valid for in seconds.
     ///
-    /// `sequence`: Sequence nonce to use, this should always be unique per server, per token. Use a continously incrementing counter should be sufficient for most cases.
+    /// `nonce`: Nonce to use. Should be randomly generated for every token.
     ///
     /// `protocol`: Client specific protocol.
     ///
@@ -218,7 +225,7 @@ impl ConnectToken {
         hosts: H,
         private_key: &[u8; NETCODE_KEY_BYTES],
         expire_sec: usize,
-        sequence: u64,
+        nonce: &ConnectTokenNonce,
         protocol: u64,
         client_id: u64,
         user_data: Option<&[u8; NETCODE_USER_DATA_BYTES]>,
@@ -234,7 +241,7 @@ impl ConnectToken {
             hosts,
             private_key,
             expire_sec,
-            sequence,
+            nonce,
             protocol,
             client_id,
             user_data,
@@ -245,7 +252,7 @@ impl ConnectToken {
         hosts: H,
         private_key: &[u8; NETCODE_KEY_BYTES],
         expire_sec: usize,
-        sequence: u64,
+        nonce: &ConnectTokenNonce,
         protocol: u64,
         client_id: u64,
         user_data: Option<&[u8; NETCODE_USER_DATA_BYTES]>,
@@ -259,11 +266,11 @@ impl ConnectToken {
         let decoded_data = PrivateData::new(client_id, hosts, user_data);
 
         let mut private_data = [0; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES];
-        decoded_data.encode(&mut private_data, protocol, expire, sequence, private_key)?;
+        decoded_data.encode(&mut private_data, protocol, expire, nonce, private_key)?;
 
         Ok(Self {
             protocol,
-            sequence,
+            nonce: *nonce,
             private_data,
             hosts: decoded_data.hosts.clone(),
             create_utc: now,
@@ -276,7 +283,6 @@ impl ConnectToken {
 
     /// Decodes the private data stored by this connection token.
     /// `private_key` - Server's private key used to generate this token.
-    /// `sequence` - Nonce sequence used to generate this token.
     pub fn decode(
         &mut self,
         private_key: &[u8; NETCODE_KEY_BYTES],
@@ -285,7 +291,7 @@ impl ConnectToken {
             &self.private_data,
             self.protocol,
             self.expire_utc,
-            self.sequence,
+            &self.nonce,
             private_key,
         )
     }
@@ -299,7 +305,7 @@ impl ConnectToken {
         out.write_u64::<LittleEndian>(self.protocol)?;
         out.write_u64::<LittleEndian>(self.create_utc)?;
         out.write_u64::<LittleEndian>(self.expire_utc)?;
-        out.write_u64::<LittleEndian>(self.sequence)?;
+        out.write_all(&self.nonce)?;
         out.write_all(&self.private_data)?;
         out.write_i32::<LittleEndian>(self.timeout_sec)?;
         self.hosts.write(out)?;
@@ -325,7 +331,9 @@ impl ConnectToken {
         let protocol = source.read_u64::<LittleEndian>()?;
         let create_utc = source.read_u64::<LittleEndian>()?;
         let expire_utc = source.read_u64::<LittleEndian>()?;
-        let sequence = source.read_u64::<LittleEndian>()?;
+
+        let mut nonce = ConnectTokenNonce::default();
+        source.read_exact(&mut nonce)?;
 
         let mut private_data = [0; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES];
         source.read_exact(&mut private_data)?;
@@ -345,7 +353,7 @@ impl ConnectToken {
             create_utc,
             expire_utc,
             protocol,
-            sequence,
+            nonce,
             private_data,
             client_to_server_key,
             server_to_client_key,
@@ -388,18 +396,18 @@ impl PrivateData {
         encoded: &[u8; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES],
         protocol_id: u64,
         expire_utc: u64,
-        sequence: u64,
+        nonce: &ConnectTokenNonce,
         private_key: &[u8; NETCODE_KEY_BYTES],
     ) -> Result<Self, DecodeError> {
         let additional_data = generate_additional_data(protocol_id, expire_utc)?;
         let mut decoded =
             [0; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES - crypto::NETCODE_ENCRYPT_EXTA_BYTES];
 
-        crypto::decode(
+        crypto::decode::<XChaCha20Poly1305>(
             &mut decoded,
             encoded,
             Some(&additional_data),
-            sequence,
+            Nonce::from_slice(nonce),
             private_key,
         )?;
 
@@ -411,7 +419,7 @@ impl PrivateData {
         out: &mut [u8; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES],
         protocol_id: u64,
         expire_utc: u64,
-        sequence: u64,
+        nonce: &ConnectTokenNonce,
         private_key: &[u8; NETCODE_KEY_BYTES],
     ) -> Result<(), GenerateError> {
         let additional_data = generate_additional_data(protocol_id, expire_utc)?;
@@ -420,11 +428,11 @@ impl PrivateData {
 
         self.write(&mut io::Cursor::new(&mut scratch[..]))?;
 
-        crypto::encode(
+        crypto::encode::<XChaCha20Poly1305>(
             &mut out[..],
             &scratch,
             Some(&additional_data),
-            sequence,
+            Nonce::from_slice(nonce),
             private_key,
         )?;
 
@@ -612,7 +620,10 @@ fn read_write() {
     crypto::random_bytes(&mut user_data);
 
     let expire = 30;
-    let sequence = 1;
+
+    let mut nonce = ConnectTokenNonce::default();
+    crypto::random_bytes(&mut nonce);
+
     let protocol = 0x112233445566;
     let client_id = 0x665544332211;
 
@@ -620,7 +631,7 @@ fn read_write() {
         ["127.0.0.1:8080"].iter().cloned(),
         &private_key,
         expire,
-        sequence,
+        &nonce,
         protocol,
         client_id,
         Some(&user_data),
@@ -642,7 +653,7 @@ fn read_write() {
     }
     assert_eq!(read.expire_utc, token.expire_utc);
     assert_eq!(read.create_utc, token.create_utc);
-    assert_eq!(read.sequence, token.sequence);
+    assert_eq!(read.nonce, token.nonce);
     assert_eq!(read.protocol, token.protocol);
     assert_eq!(read.timeout_sec, NETCODE_TIMEOUT_SECONDS);
 }
@@ -656,7 +667,10 @@ fn decode() {
     crypto::random_bytes(&mut user_data);
 
     let expire = 30;
-    let sequence = 1;
+
+    let mut nonce = ConnectTokenNonce::default();
+    crypto::random_bytes(&mut nonce);
+
     let protocol = 0x112233445566;
     let client_id = 0x665544332211;
 
@@ -664,7 +678,7 @@ fn decode() {
         ["127.0.0.1:8080"].iter().cloned(),
         &private_key,
         expire,
-        sequence,
+        &nonce,
         protocol,
         client_id,
         Some(&user_data),

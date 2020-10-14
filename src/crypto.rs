@@ -1,8 +1,8 @@
 use crate::common::*;
-use byteorder::{LittleEndian, WriteBytesExt};
+
 use chacha20poly1305::aead::generic_array::GenericArray;
-use chacha20poly1305::aead::{Aead, NewAead, Payload};
-use chacha20poly1305::ChaCha20Poly1305;
+use chacha20poly1305::aead::{Aead, NewAead, Nonce, Payload};
+
 use std::io;
 
 pub const NETCODE_ENCRYPT_EXTA_BYTES: usize = 16;
@@ -34,11 +34,11 @@ pub fn random_bytes(out: &mut [u8]) {
     getrandom::getrandom(out).unwrap();
 }
 
-pub fn encode(
+pub fn encode<T: Aead + NewAead>(
     out: &mut [u8],
     data: &[u8],
     additional_data: Option<&[u8]>,
-    nonce: u64,
+    nonce: &Nonce::<T::NonceSize>,
     key: &[u8; NETCODE_KEY_BYTES],
 ) -> Result<usize, EncryptError> {
     if key.len() != NETCODE_KEY_BYTES {
@@ -49,18 +49,14 @@ pub fn encode(
         return Err(EncryptError::BufferSizeMismatch);
     }
 
-    let mut final_nonce = [0; 12];
-    io::Cursor::new(&mut final_nonce[4..]).write_u64::<LittleEndian>(nonce)?;
-
     let key = GenericArray::from_slice(key);
-    let nonce = GenericArray::from_slice(&final_nonce);
 
     let payload = Payload {
         msg: data,
         aad: additional_data.unwrap_or_default(),
     };
 
-    match ChaCha20Poly1305::new(key).encrypt(nonce, payload) {
+    match T::new(key).encrypt(nonce, payload) {
         Ok(cipher_text) => {
             out[0..cipher_text.len()].copy_from_slice(&cipher_text);
             Ok(cipher_text.len())
@@ -71,11 +67,11 @@ pub fn encode(
     }
 }
 
-pub fn decode(
+pub fn decode<T: Aead + NewAead>(
     out: &mut [u8],
     data: &[u8],
     additional_data: Option<&[u8]>,
-    nonce: u64,
+    nonce: &Nonce::<T::NonceSize>,
     key: &[u8; NETCODE_KEY_BYTES],
 ) -> Result<usize, EncryptError> {
     if key.len() != NETCODE_KEY_BYTES {
@@ -86,18 +82,14 @@ pub fn decode(
         return Err(EncryptError::BufferSizeMismatch);
     }
 
-    let mut final_nonce = [0; 12];
-    io::Cursor::new(&mut final_nonce[4..]).write_u64::<LittleEndian>(nonce)?;
-
     let key = GenericArray::from_slice(key);
-    let nonce = GenericArray::from_slice(&final_nonce);
 
     let payload = Payload {
         msg: data,
         aad: additional_data.unwrap_or_default(),
     };
 
-    match ChaCha20Poly1305::new(key).decrypt(nonce, payload) {
+    match T::new(key).decrypt(nonce, payload) {
         Ok(plain_text) => {
             out[0..plain_text.len()].copy_from_slice(&plain_text);
             Ok(plain_text.len())

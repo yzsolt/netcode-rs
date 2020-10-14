@@ -91,27 +91,25 @@
 //!
 //! # Token Example
 //! ```
-//! use netcode_rs::{self, ConnectToken, generate_key};
+//! use netcode_rs::{self, ConnectToken, ConnectTokenNonce, generate_key};
 //! use std::io;
 //!
 //! const EXPIRE_SECONDS: usize = 30;
 //! const PROTOCOL_ID: u64 = 0xFFEE;
 //!
 //! # fn get_client_id() -> u64 { 0 }
-//! # fn get_next_sequence() -> u64 { 0 }
+//! # fn get_connect_token_nonce() -> ConnectTokenNonce { ConnectTokenNonce::default() }
 //! let private_key = generate_key(); //Note: You probably want to
 //!                                            //store this some where safe.
 //! let client_id = get_client_id(); //Unique u64 client id.
-//! let sequence = get_next_sequence(); //sequence passed to generate() must
-//!                                     //be a monotically increasing u64
-//!                                     //to prevent replay attacks.
+//! let nonce = get_connect_token_nonce(); // Nonce passed to generate(), must be randomly generated
 //! let user_data = None;   //Any custom user data, can be up to 256 bytes.
 //!                         //Will be encrypted and returned to sever on connect.
 //!
 //! let token = ConnectToken::generate_with_string(["127.0.0.1:5000"].iter().cloned(),
 //!                                                &private_key,
 //!                                                EXPIRE_SECONDS,
-//!                                                sequence,
+//!                                                &nonce,
 //!                                                PROTOCOL_ID,
 //!                                                client_id,
 //!                                                user_data).unwrap();
@@ -153,4 +151,4 @@ pub use crate::common::{
 pub use crate::crypto::generate_key;
 pub use crate::error::*;
 pub use crate::server::{Server, ServerEvent, UdpServer};
-pub use crate::token::{ConnectToken, DecodeError};
+pub use crate::token::{ConnectToken, ConnectTokenNonce, DecodeError};

@@ -493,11 +493,14 @@ mod test {
             private_key: &[u8; NETCODE_KEY_BYTES],
             addr: SocketAddr,
         ) -> token::ConnectToken {
+            let mut nonce = token::ConnectTokenNonce::default();
+            crypto::random_bytes(&mut nonce);
+
             token::ConnectToken::generate(
                 [addr].iter().cloned(),
                 private_key,
                 30, //Expire
-                0,
+                &nonce,
                 PROTOCOL_ID,
                 CLIENT_ID, //Client Id
                 None,

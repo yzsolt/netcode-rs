@@ -3,6 +3,9 @@ use std::io::Write;
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
+use chacha20poly1305::aead::Nonce;
+use chacha20poly1305::ChaCha20Poly1305;
+
 use crate::common::*;
 use crate::crypto;
 use crate::token;
@@ -131,6 +134,13 @@ fn get_additional_data(
     Ok(buffer)
 }
 
+fn sequence_to_nonce(sequence: u64) -> [u8; 12] {
+    let mut nonce = [0; 12];
+    io::Cursor::new(&mut nonce[4..]).write_u64::<LittleEndian>(sequence).unwrap();
+
+    nonce
+}
+
 pub fn decode(
     data: &[u8],
     protocol_id: u64,
@@ -154,11 +164,13 @@ pub fn decode(
         let payload = &data[source.position() as usize..];
         let additional_data = get_additional_data(prefix_byte, protocol_id)?;
 
-        let decoded_len = crypto::decode(
+        let nonce = sequence_to_nonce(sequence);
+
+        let decoded_len = crypto::decode::<ChaCha20Poly1305>(
             out,
             payload,
             Some(&additional_data[..]),
-            sequence,
+            Nonce::from_slice(&nonce),
             private_key,
         )?;
 
@@ -221,11 +233,13 @@ pub fn encode(
 
         let additional_data = get_additional_data(prefix_byte, protocol_id)?;
 
-        let crypt_write = crypto::encode(
+        let nonce = sequence_to_nonce(sequence);
+
+        let crypt_write = crypto::encode::<ChaCha20Poly1305>(
             &mut out[offset..],
             &scratch[..scratch_written as usize],
             Some(&additional_data[..]),
-            sequence,
+            Nonce::from_slice(&nonce),
             private_key,
         )?;
 
@@ -239,7 +253,7 @@ pub struct ConnectionRequestPacket {
     pub version: [u8; NETCODE_VERSION_LEN],
     pub protocol_id: u64,
     pub token_expire: u64,
-    pub sequence: u64,
+    pub nonce: token::ConnectTokenNonce,
     pub private_data: [u8; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES],
 }
 
@@ -249,7 +263,7 @@ impl ConnectionRequestPacket {
             version: *NETCODE_VERSION_STRING,
             protocol_id: token.protocol,
             token_expire: token.expire_utc,
-            sequence: token.sequence,
+            nonce: token.nonce,
             private_data: token.private_data,
         }
     }
@@ -263,7 +277,9 @@ impl ConnectionRequestPacket {
 
         let protocol_id = source.read_u64::<LittleEndian>()?;
         let token_expire = source.read_u64::<LittleEndian>()?;
-        let sequence = source.read_u64::<LittleEndian>()?;
+
+        let mut nonce = token::ConnectTokenNonce::default();
+        source.read_exact(&mut nonce)?;
 
         let mut private_data = [0; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES];
         source.read_exact(&mut private_data[..])?;
@@ -272,7 +288,7 @@ impl ConnectionRequestPacket {
             version,
             protocol_id,
             token_expire,
-            sequence,
+            nonce,
             private_data,
         })
     }
@@ -284,7 +300,7 @@ impl ConnectionRequestPacket {
         out.write_all(&self.version)?;
         out.write_u64::<LittleEndian>(self.protocol_id)?;
         out.write_u64::<LittleEndian>(self.token_expire)?;
-        out.write_u64::<LittleEndian>(self.sequence)?;
+        out.write_all(&self.nonce)?;
         out.write_all(&self.private_data)?;
 
         Ok(())
@@ -375,12 +391,14 @@ impl ChallengePacket {
         let mut scratch = [0; NETCODE_CHALLENGE_TOKEN_BYTES - NETCODE_MAC_BYTES];
         token.write(&mut io::Cursor::new(&mut scratch[..]))?;
 
+        let nonce = sequence_to_nonce(challenge_sequence);
+
         let mut token_data = [0; NETCODE_CHALLENGE_TOKEN_BYTES];
-        crypto::encode(
+        crypto::encode::<ChaCha20Poly1305>(
             &mut token_data[..],
             &scratch[..],
             None,
-            challenge_sequence,
+            Nonce::from_slice(&nonce),
             challenge_key,
         )?;
 
@@ -396,11 +414,13 @@ impl ChallengePacket {
         challenge_key: &[u8; NETCODE_KEY_BYTES],
     ) -> Result<ChallengeToken, ChallengeEncodeError> {
         let mut decoded = [0; NETCODE_CHALLENGE_TOKEN_BYTES];
-        crypto::decode(
+        let nonce = sequence_to_nonce(self.token_sequence);
+
+        crypto::decode::<ChaCha20Poly1305>(
             &mut decoded,
             &self.token_data,
             None,
-            self.token_sequence,
+            Nonce::from_slice(&nonce),
             challenge_key,
         )?;
 
@@ -457,11 +477,13 @@ impl ResponsePacket {
         challenge_key: &[u8; NETCODE_KEY_BYTES],
     ) -> Result<ChallengeToken, ChallengeEncodeError> {
         let mut decoded = [0; NETCODE_CHALLENGE_TOKEN_BYTES];
-        crypto::decode(
+        let nonce = sequence_to_nonce(self.token_sequence);
+
+        crypto::decode::<ChaCha20Poly1305>(
             &mut decoded,
             &self.token_data,
             None,
-            self.token_sequence,
+            Nonce::from_slice(&nonce),
             challenge_key,
         )?;
 
@@ -587,7 +609,10 @@ fn test_conn_packet() {
     use std::str::FromStr;
 
     let protocol_id = 0xFFCC;
-    let sequence = 0xCCDD;
+
+    let mut nonce = token::ConnectTokenNonce::default();
+    crypto::random_bytes(&mut nonce);
+
     let pkey = crypto::generate_key();
 
     let token = token::ConnectToken::generate(
@@ -596,7 +621,7 @@ fn test_conn_packet() {
             .cloned(),
         &pkey,
         30, //Expire
-        sequence,
+        &nonce,
         protocol_id,
         0xFFEE, //Client Id
         None,
@@ -605,7 +630,7 @@ fn test_conn_packet() {
 
     let packet = Packet::ConnectionRequest(ConnectionRequestPacket {
         protocol_id,
-        sequence,
+        nonce,
         version: NETCODE_VERSION_STRING.clone(),
         token_expire: token.expire_utc,
         private_data: token.private_data,
@@ -623,7 +648,7 @@ fn test_conn_packet() {
 
             assert_eq!(p.protocol_id, protocol_id);
             assert_eq!(p.token_expire, token.expire_utc);
-            assert_eq!(p.sequence, sequence);
+            assert_eq!(p.nonce, nonce);
 
             for i in 0..p.private_data.len() {
                 assert_eq!(p.private_data[i], token.private_data[i]);
