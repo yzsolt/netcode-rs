@@ -34,8 +34,6 @@ pub fn random_bytes(out: &mut [u8]) {
     getrandom::getrandom(out).unwrap();
 }
 
-// TODO: fix me
-#[cfg_attr(feature = "cargo-clippy", allow(cast_possible_truncation))]
 pub fn encode(
     out: &mut [u8],
     data: &[u8],
@@ -73,8 +71,6 @@ pub fn encode(
     }
 }
 
-// TODO: fix me
-#[cfg_attr(feature = "cargo-clippy", allow(cast_possible_truncation))]
 pub fn decode(
     out: &mut [u8],
     data: &[u8],

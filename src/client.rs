@@ -449,7 +449,7 @@ mod test {
     use std::time::Duration;
 
     const PROTOCOL_ID: u64 = 0xFFCC;
-    const MAX_CLIENTS: usize = 256;
+    const MAX_CLIENTS: u32 = 256;
     const CLIENT_ID: u64 = 0xFFEEDD;
 
     struct TestHarness<I, S>

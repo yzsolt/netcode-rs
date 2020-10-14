@@ -68,7 +68,7 @@ type ClientVec = Vec<Option<Connection>>;
 ///
 /// fn run_server() {
 ///     const PROTOCOL_ID: u64 = 0xFFEE;
-///     const MAX_CLIENTS: usize = 32;
+///     const MAX_CLIENTS: u32 = 32;
 ///     let mut server = UdpServer::new("127.0.0.1:0",
 ///                                     MAX_CLIENTS,
 ///                                     PROTOCOL_ID,
@@ -135,7 +135,7 @@ where
     /// Constructs a new Server bound to `local_addr` with `max_clients` and supplied `private_key` for authentication.
     pub fn new<A>(
         local_addr: A,
-        max_clients: usize,
+        max_clients: u32,
         protocol_id: u64,
         private_key: &[u8; NETCODE_KEY_BYTES],
     ) -> Result<Self, CreateError>
@@ -149,10 +149,7 @@ where
                 let mut key_copy: [u8; NETCODE_KEY_BYTES] = [0; NETCODE_KEY_BYTES];
                 key_copy.copy_from_slice(private_key);
 
-                let mut clients = Vec::with_capacity(max_clients);
-                for _ in 0..max_clients {
-                    clients.push(None);
-                }
+                let clients = vec![None; max_clients as usize];
 
                 trace!("Started server on {:?}", s.local_addr().unwrap());
 
@@ -433,8 +430,8 @@ where
                             &private_data.client_to_server_key,
                             addr,
                             self.protocol_id,
-                            idx,
-                            clients.len(),
+                            idx as u32,
+                            clients.len() as u32, // Length of `clients` is guaranteed to fit into u32 (see `Server::new`)
                             self.time,
                         ),
                     };
@@ -735,7 +732,7 @@ mod test {
     use std::net::UdpSocket;
 
     const PROTOCOL_ID: u64 = 0xFFCC;
-    const MAX_CLIENTS: usize = 256;
+    const MAX_CLIENTS: u32 = 256;
     const CLIENT_ID: u64 = 0xFFEEDD;
 
     struct TestHarness<I, S>

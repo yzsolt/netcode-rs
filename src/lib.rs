@@ -21,7 +21,7 @@
 //!
 //! fn run_server() {
 //!     const PROTOCOL_ID: u64 = 0xFFEE;
-//!     const MAX_CLIENTS: usize = 32;
+//!     const MAX_CLIENTS: u32 = 32;
 //!     let mut server = UdpServer::new("127.0.0.1:0",
 //!                                     MAX_CLIENTS,
 //!                                     PROTOCOL_ID,
@@ -122,7 +122,7 @@
 //! # use netcode_rs::{UdpServer, generate_key};
 //! //Alteratively if you already have a server you can generate a token like below:
 //! const PROTOCOL_ID: u64 = 0xFFEE;
-//! const MAX_CLIENTS: usize = 32;
+//! const MAX_CLIENTS: u32 = 32;
 //! let mut server = UdpServer::new("127.0.0.1:0",
 //!                                 MAX_CLIENTS,
 //!                                 PROTOCOL_ID,

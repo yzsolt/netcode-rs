@@ -17,7 +17,7 @@ use std::time::Duration;
 
 use time::OffsetDateTime;
 
-const MAX_CLIENTS: usize = 256; //Total number of clients we support
+const MAX_CLIENTS: u32 = 256; //Total number of clients we support
 const PROTOCOL_ID: u64 = 0x00FF_DDEE; //Unique protocol id for our application.
 const TOKEN_LIFETIME: usize = 15; //Our token lives 15 seconds.
 

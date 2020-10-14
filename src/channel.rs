@@ -50,8 +50,8 @@ pub struct Channel {
     next_sequence: u64,
     addr: SocketAddr,
     protocol_id: u64,
-    client_idx: usize,
-    max_clients: usize,
+    client_idx: u32,
+    max_clients: u32,
 }
 
 pub enum UpdateResult {
@@ -66,8 +66,8 @@ impl Channel {
         recv_key: &[u8; NETCODE_KEY_BYTES],
         addr: &SocketAddr,
         protocol_id: u64,
-        client_idx: usize,
-        max_clients: usize,
+        client_idx: u32,
+        max_clients: u32,
         time: f64,
     ) -> Self {
         Self {
@@ -128,11 +128,6 @@ impl Channel {
         Ok(packet)
     }
 
-    // TODO: fix me
-    #[cfg_attr(
-        feature = "cargo-clippy",
-        allow(cast_possible_wrap, cast_possible_truncation)
-    )]
     pub fn send_keep_alive<I, S>(
         &mut self,
         elapsed: f64,
@@ -142,8 +137,8 @@ impl Channel {
         I: SocketProvider<I, S>,
     {
         let keep_alive = KeepAlivePacket {
-            client_idx: self.client_idx as i32,
-            max_clients: self.max_clients as i32,
+            client_idx: self.client_idx,
+            max_clients: self.max_clients,
         };
 
         self.send(elapsed, &Packet::KeepAlive(keep_alive), None, socket)

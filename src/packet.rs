@@ -153,8 +153,6 @@ pub fn decode(
         //the number of bytes we were told exist.
         let sequence = read_sequence(source, sequence_len)?;
 
-        // TODO: fix me
-        #[cfg_attr(feature = "cargo-clippy", allow(cast_possible_truncation))]
         let payload = &data[source.position() as usize..];
         let additional_data = get_additional_data(prefix_byte, protocol_id)?;
 
@@ -198,8 +196,6 @@ pub fn encode(
         writer.write_u8(encode_prefix(packet.get_type_id() as u8, 0))?;
         req.write(&mut writer)?;
 
-        // TODO: fix me
-        #[cfg_attr(feature = "cargo-clippy", allow(cast_possible_truncation))]
         Ok(writer.position() as usize)
     } else if let Some((sequence, private_key)) = crypt_info {
         let (prefix_byte, offset) = {
@@ -210,7 +206,7 @@ pub fn encode(
             write.write_u8(prefix_byte)?;
             write_sequence(write, sequence)?;
 
-            (prefix_byte, write.position())
+            (prefix_byte, write.position() as usize)
         };
 
         let mut scratch = [0; NETCODE_MAX_PACKET_SIZE];
@@ -227,19 +223,15 @@ pub fn encode(
 
         let additional_data = get_additional_data(prefix_byte, protocol_id)?;
 
-        // TODO: fix me
-        #[cfg_attr(feature = "cargo-clippy", allow(cast_possible_truncation))]
         let crypt_write = crypto::encode(
-            &mut out[offset as usize..],
+            &mut out[offset..],
             &scratch[..scratch_written as usize],
             Some(&additional_data[..]),
             sequence,
             private_key,
         )?;
 
-        // TODO: fix me
-        #[cfg_attr(feature = "cargo-clippy", allow(cast_possible_truncation))]
-        Ok(offset as usize + crypt_write)
+        Ok(offset + crypt_write)
     } else {
         Err(PacketError::InvalidPrivateKey)
     }
@@ -490,8 +482,8 @@ impl ResponsePacket {
 }
 
 pub struct KeepAlivePacket {
-    pub client_idx: i32,
-    pub max_clients: i32,
+    pub client_idx: u32,
+    pub max_clients: u32,
 }
 
 impl KeepAlivePacket {
@@ -500,8 +492,8 @@ impl KeepAlivePacket {
         R: io::Read,
     {
         Ok(Self {
-            client_idx: source.read_i32::<LittleEndian>()?,
-            max_clients: source.read_i32::<LittleEndian>()?,
+            client_idx: source.read_u32::<LittleEndian>()?,
+            max_clients: source.read_u32::<LittleEndian>()?,
         })
     }
 
@@ -509,8 +501,8 @@ impl KeepAlivePacket {
     where
         W: io::Write,
     {
-        out.write_i32::<LittleEndian>(self.client_idx)?;
-        out.write_i32::<LittleEndian>(self.max_clients)?;
+        out.write_u32::<LittleEndian>(self.client_idx)?;
+        out.write_u32::<LittleEndian>(self.max_clients)?;
 
         Ok(())
     }
