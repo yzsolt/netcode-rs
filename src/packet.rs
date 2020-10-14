@@ -58,13 +58,11 @@ fn decode_prefix(value: u8) -> (u8, usize) {
     ((value & 0xF) as u8, (value >> 4) as usize)
 }
 
-// TODO: fix me
-#[cfg_attr(feature = "cargo-clippy", allow(cast_possible_truncation))]
 fn encode_prefix(value: u8, sequence: u64) -> u8 {
-    value | ((sequence_bytes_required(sequence) as u8) << 4)
+    value | (sequence_bytes_required(sequence) << 4)
 }
 
-fn sequence_bytes_required(sequence: u64) -> usize {
+fn sequence_bytes_required(sequence: u64) -> u8 {
     let mut mask: u64 = 0xFF00_0000_0000_0000;
     for i in 0..8 {
         if (sequence & mask) != 0x00 {
@@ -101,7 +99,7 @@ fn write_sequence<W>(out: &mut W, seq: u64) -> Result<usize, io::Error>
 where
     W: io::Write,
 {
-    let len = sequence_bytes_required(seq);
+    let len = sequence_bytes_required(seq) as usize;
 
     let mut sequence_scratch = [0; 8];
     io::Cursor::new(&mut sequence_scratch[..]).write_u64::<LittleEndian>(seq)?;
@@ -526,7 +524,7 @@ fn test_seq_value(v: u64) {
         v,
         read_sequence(
             &mut io::Cursor::new(&scratch[..]),
-            sequence_bytes_required(v)
+            sequence_bytes_required(v) as usize
         )
         .unwrap()
     );
