@@ -7,8 +7,6 @@ pub type Key = [u8; 32];
 pub const NETCODE_USER_DATA_BYTES: usize = 256;
 pub const NETCODE_CONNECT_TOKEN_PRIVATE_BYTES: usize = 1024;
 
-pub const NETCODE_TIMEOUT_SECONDS: i32 = 15;
-
 pub const NETCODE_MAX_SERVERS_PER_CONNECT: usize = 16;
 
 /// Maximum size packet that is sent over the wire.

@@ -156,6 +156,8 @@ pub fn get_time_now() -> u64 {
 }
 
 impl ConnectToken {
+    const TIMEOUT_SECONDS: i32 = 15;
+
     /// Generates a new connection token.
     /// # Arguments
     /// `addrs`: List of allowed hosts to connect to in From<String> form.
@@ -277,7 +279,7 @@ impl ConnectToken {
             expire_utc: expire,
             client_to_server_key: decoded_data.client_to_server_key,
             server_to_client_key: decoded_data.server_to_client_key,
-            timeout_sec: NETCODE_TIMEOUT_SECONDS,
+            timeout_sec: ConnectToken::TIMEOUT_SECONDS,
         })
     }
 
@@ -658,7 +660,7 @@ mod test {
         assert_eq!(read.create_utc, token.create_utc);
         assert_eq!(read.nonce, token.nonce);
         assert_eq!(read.protocol, token.protocol);
-        assert_eq!(read.timeout_sec, NETCODE_TIMEOUT_SECONDS);
+        assert_eq!(read.timeout_sec, ConnectToken::TIMEOUT_SECONDS);
     }
 
     #[test]
