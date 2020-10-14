@@ -135,10 +135,6 @@
 //! let token = server.generate_token(EXPIRE_SECONDS, client_id, None).unwrap();
 //! ```
 
-#![warn(clippy::all)]
-#![feature(nll, stmt_expr_attributes)]
-#![warn(rust_2018_idioms)]
-
 mod channel;
 mod client;
 mod common;
