@@ -119,8 +119,15 @@ impl Channel {
         let (seq, packet) =
             packet::decode(packet, self.protocol_id, Some(&self.recv_key), out_payload)?;
 
-        if self.replay_protection.packet_already_received(seq) {
-            return Err(RecvError::DuplicateSequence);
+        match packet {
+            Packet::KeepAlive(_) | Packet::Payload(_) | Packet::Disconnect => {
+                if self.replay_protection.packet_already_received(seq) {
+                    return Err(RecvError::DuplicateSequence);
+                }
+
+                self.replay_protection.advance_sequence(seq);
+            }
+            _ => {}
         }
 
         self.keep_alive.update_response(current_time);
