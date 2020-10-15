@@ -309,7 +309,7 @@ impl ConnectionRequestPacket {
 
 pub struct ChallengeToken {
     pub client_id: u64,
-    pub user_data: [u8; NETCODE_USER_DATA_BYTES],
+    pub user_data: token::UserData,
 }
 
 impl Clone for ChallengeToken {
@@ -322,13 +322,10 @@ impl Clone for ChallengeToken {
 }
 
 impl ChallengeToken {
-    pub fn generate(client_id: u64, connect_user_data: &[u8; NETCODE_USER_DATA_BYTES]) -> Self {
-        let mut user_data = [0; NETCODE_USER_DATA_BYTES];
-        user_data.copy_from_slice(connect_user_data);
-
+    pub fn generate(client_id: u64, connect_user_data: &token::UserData) -> Self {
         Self {
             client_id,
-            user_data,
+            user_data: *connect_user_data,
         }
     }
 
@@ -337,7 +334,8 @@ impl ChallengeToken {
         R: io::Read,
     {
         let client_id = source.read_u64::<LittleEndian>()?;
-        let mut user_data = [0; NETCODE_USER_DATA_BYTES];
+
+        let mut user_data = [0; token::USER_DATA_LEN];
         source.read_exact(&mut user_data)?;
 
         Ok(Self {
@@ -383,7 +381,7 @@ impl From<crypto::EncryptError> for ChallengeEncodeError {
 impl ChallengePacket {
     pub fn generate(
         client_id: u64,
-        connect_user_data: &[u8; NETCODE_USER_DATA_BYTES],
+        connect_user_data: &token::UserData,
         challenge_sequence: u64,
         challenge_key: &Key,
     ) -> Result<Self, ChallengeEncodeError> {
@@ -759,7 +757,7 @@ mod test {
 
     #[test]
     fn test_decode_challenge_token() {
-        let mut user_data = [0; NETCODE_USER_DATA_BYTES];
+        let mut user_data = [0; token::USER_DATA_LEN];
         for i in 0..user_data.len() {
             user_data[i] = i as u8;
         }

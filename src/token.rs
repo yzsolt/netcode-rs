@@ -66,6 +66,12 @@ const NETCODE_ADDITIONAL_DATA_SIZE: usize = NETCODE_VERSION_LEN + 8 + 8;
 /// Nonce for encrypting private connect token data using the `XChaCha20Poly1305` AEAD primitive
 pub type ConnectTokenNonce = [u8; 24];
 
+/// Maximal length of `UserData`.
+pub const USER_DATA_LEN: usize = 256;
+
+/// User data included in `ConnectToken`
+pub type UserData = [u8; USER_DATA_LEN];
+
 /// Token used by clients to connect and authenticate to a netcode `Server`
 pub struct ConnectToken {
     /// Protocol ID for messages relayed by netcode.
@@ -115,7 +121,7 @@ pub struct PrivateData {
     /// Private key for server -> client communcation.
     pub server_to_client_key: Key,
     /// Server-specific user data.
-    pub user_data: [u8; NETCODE_USER_DATA_BYTES],
+    pub user_data: UserData,
 }
 
 #[derive(Clone, Debug)]
@@ -123,8 +129,8 @@ pub struct HostList {
     hosts: [Option<SocketAddr>; NETCODE_MAX_SERVERS_PER_CONNECT],
 }
 
-fn generate_user_data() -> [u8; NETCODE_USER_DATA_BYTES] {
-    let mut user_data: [u8; NETCODE_USER_DATA_BYTES] = [0; NETCODE_USER_DATA_BYTES];
+fn generate_user_data() -> UserData {
+    let mut user_data = [0; USER_DATA_LEN];
 
     crypto::random_bytes(&mut user_data);
 
@@ -180,7 +186,7 @@ impl ConnectToken {
         nonce: &ConnectTokenNonce,
         protocol: u64,
         client_id: u64,
-        user_data: Option<&[u8; NETCODE_USER_DATA_BYTES]>,
+        user_data: Option<&UserData>,
     ) -> Result<Self, GenerateError>
     where
         H: ExactSizeIterator<Item = I>,
@@ -230,7 +236,7 @@ impl ConnectToken {
         nonce: &ConnectTokenNonce,
         protocol: u64,
         client_id: u64,
-        user_data: Option<&[u8; NETCODE_USER_DATA_BYTES]>,
+        user_data: Option<&UserData>,
     ) -> Result<Self, GenerateError>
     where
         H: ExactSizeIterator<Item = SocketAddr>,
@@ -257,7 +263,7 @@ impl ConnectToken {
         nonce: &ConnectTokenNonce,
         protocol: u64,
         client_id: u64,
-        user_data: Option<&[u8; NETCODE_USER_DATA_BYTES]>,
+        user_data: Option<&UserData>,
     ) -> Result<Self, GenerateError>
     where
         H: Iterator<Item = SocketAddr>,
@@ -368,17 +374,13 @@ impl PrivateData {
     pub fn new<H>(
         client_id: u64,
         hosts: H,
-        user_data: Option<&[u8; NETCODE_USER_DATA_BYTES]>,
+        user_data: Option<&UserData>,
     ) -> Self
     where
         H: Iterator<Item = SocketAddr>,
     {
         let final_user_data = match user_data {
-            Some(u) => {
-                let mut copy_ud: [u8; NETCODE_USER_DATA_BYTES] = [0; NETCODE_USER_DATA_BYTES];
-                copy_ud[..u.len()].copy_from_slice(u);
-                copy_ud
-            }
+            Some(u) => *u,
             None => generate_user_data(),
         };
 
@@ -469,7 +471,7 @@ impl PrivateData {
         let mut server_to_client_key = Key::default();
         source.read_exact(&mut server_to_client_key)?;
 
-        let mut user_data = [0; NETCODE_USER_DATA_BYTES];
+        let mut user_data = [0; USER_DATA_LEN];
         source.read_exact(&mut user_data)?;
 
         Ok(Self {
@@ -621,7 +623,7 @@ mod test {
         let mut private_key = Key::default();
         crypto::random_bytes(&mut private_key);
 
-        let mut user_data = [0; NETCODE_USER_DATA_BYTES];
+        let mut user_data = [0; USER_DATA_LEN];
         crypto::random_bytes(&mut user_data);
 
         let expire = 30;
@@ -668,7 +670,7 @@ mod test {
         let mut private_key = Key::default();
         crypto::random_bytes(&mut private_key);
 
-        let mut user_data = [0; NETCODE_USER_DATA_BYTES];
+        let mut user_data = [0; USER_DATA_LEN];
         crypto::random_bytes(&mut user_data);
 
         let expire = 30;

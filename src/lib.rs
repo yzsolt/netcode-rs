@@ -146,7 +146,7 @@ mod token;
 
 pub use crate::client::{Client, ClientEvent, State as ClientState, UdpClient};
 pub use crate::common::{
-    Key, NETCODE_MAX_PACKET_SIZE, NETCODE_MAX_PAYLOAD_SIZE, NETCODE_USER_DATA_BYTES,
+    Key, NETCODE_MAX_PACKET_SIZE, NETCODE_MAX_PAYLOAD_SIZE,
 };
 pub use crate::crypto::generate_key;
 pub use crate::error::*;

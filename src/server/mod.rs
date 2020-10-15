@@ -176,7 +176,7 @@ where
         &mut self,
         expire_secs: usize,
         client_id: u64,
-        user_data: Option<&[u8; NETCODE_USER_DATA_BYTES]>,
+        user_data: Option<&token::UserData>,
     ) -> Result<token::ConnectToken, token::GenerateError> {
         let addr = if self.internal.listen_addr.port() == 0 {
             self.get_local_addr()?
@@ -680,7 +680,7 @@ where
             ConnectionState::PendingResponse => match decoded {
                 packet::Packet::Response(resp) => {
                     let token = resp.decode(&self.challenge_key)?;
-                    out_packet[..NETCODE_USER_DATA_BYTES].copy_from_slice(&token.user_data);
+                    out_packet[..token::USER_DATA_LEN].copy_from_slice(&token.user_data);
 
                     client
                         .channel
