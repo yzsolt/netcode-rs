@@ -85,7 +85,7 @@ impl Channel {
 
     pub fn send<I, S>(
         &mut self,
-        elapsed: f64,
+        current_time: f64,
         packet: &Packet,
         payload: Option<&[u8]>,
         socket: &mut I,
@@ -105,14 +105,14 @@ impl Channel {
         socket.send_to(&scratch[..len], &self.addr)?;
 
         self.next_sequence += 1;
-        self.keep_alive.update_sent(elapsed);
+        self.keep_alive.update_sent(current_time);
 
         Ok(len)
     }
 
     pub fn recv(
         &mut self,
-        elapsed: f64,
+        current_time: f64,
         packet: &[u8],
         out_payload: &mut [u8; NETCODE_MAX_PAYLOAD_SIZE],
     ) -> Result<Packet, RecvError> {
@@ -123,14 +123,14 @@ impl Channel {
             return Err(RecvError::DuplicateSequence);
         }
 
-        self.keep_alive.update_response(elapsed);
+        self.keep_alive.update_response(current_time);
 
         Ok(packet)
     }
 
     pub fn send_keep_alive<I, S>(
         &mut self,
-        elapsed: f64,
+        current_time: f64,
         socket: &mut I,
     ) -> Result<usize, SendError>
     where
@@ -141,28 +141,28 @@ impl Channel {
             max_clients: self.max_clients,
         };
 
-        self.send(elapsed, &Packet::KeepAlive(keep_alive), None, socket)
+        self.send(current_time, &Packet::KeepAlive(keep_alive), None, socket)
     }
 
     pub fn update<I, S>(
         &mut self,
-        elapsed: f64,
+        current_time: f64,
         socket: &mut I,
         send_keep_alive: bool,
     ) -> Result<UpdateResult, SendError>
     where
         I: SocketProvider<I, S>,
     {
-        if self.keep_alive.should_send_keepalive(elapsed) {
+        if self.keep_alive.should_send_keepalive(current_time) {
             if send_keep_alive {
                 trace!("Sending keep alive");
-                self.send_keep_alive(elapsed, socket)?;
+                self.send_keep_alive(current_time, socket)?;
             }
 
             return Ok(UpdateResult::SentKeepAlive);
         }
 
-        if self.keep_alive.has_expired(elapsed) {
+        if self.keep_alive.has_expired(current_time) {
             return Ok(UpdateResult::Expired);
         }
 
