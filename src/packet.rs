@@ -617,12 +617,15 @@ mod test {
 
         let pkey = crypto::generate_key();
 
+        const TIMEOUT_SEC: u32 = 15;
+
         let token = token::ConnectToken::generate(
             [SocketAddr::from_str("127.0.0.1:8080").unwrap()]
                 .iter()
                 .cloned(),
             &pkey,
             30, //Expire
+            TIMEOUT_SEC,
             &nonce,
             protocol_id,
             0xFFEE, //Client Id

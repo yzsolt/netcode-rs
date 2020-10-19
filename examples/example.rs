@@ -20,6 +20,7 @@ use time::OffsetDateTime;
 const MAX_CLIENTS: u32 = 256; //Total number of clients we support
 const PROTOCOL_ID: u64 = 0x00FF_DDEE; //Unique protocol id for our application.
 const TOKEN_LIFETIME: usize = 15; //Our token lives 15 seconds.
+const CONNECTION_TIMEOUT: u32 = 15; // Time in seconds connection should wait before disconnecting.
 
 const CLIENT_ID: u64 = 0x00DD_EEFF; //Single unique client id, you'll want to tie this into
                                     // your user store in production.
@@ -60,7 +61,7 @@ fn main() {
     )
     .unwrap();
     let token = server
-        .generate_token(TOKEN_LIFETIME, CLIENT_ID, None)
+        .generate_token(TOKEN_LIFETIME, CONNECTION_TIMEOUT, CLIENT_ID, None)
         .unwrap();
 
     let server_thread = thread::spawn(move || {

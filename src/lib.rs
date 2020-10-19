@@ -96,6 +96,7 @@
 //!
 //! const EXPIRE_SECONDS: usize = 30;
 //! const PROTOCOL_ID: u64 = 0xFFEE;
+//! const TIMEOUT_SECONDS: u32 = 15;
 //!
 //! # fn get_client_id() -> u64 { 0 }
 //! # fn get_connect_token_nonce() -> ConnectTokenNonce { ConnectTokenNonce::default() }
@@ -109,6 +110,7 @@
 //! let token = ConnectToken::generate_with_string(["127.0.0.1:5000"].iter().cloned(),
 //!                                                &private_key,
 //!                                                EXPIRE_SECONDS,
+//!                                                TIMEOUT_SECONDS,
 //!                                                &nonce,
 //!                                                PROTOCOL_ID,
 //!                                                client_id,
@@ -127,10 +129,11 @@
 //!                                 &generate_key()).unwrap();
 //!
 //! const EXPIRE_SECONDS: usize = 30;
+//! const TIMEOUT_SECONDS: u32 = 15;
 //! # fn get_client_id() -> u64 { 0 }
 //! let client_id = get_client_id(); //Unique u64 client id.
 //!
-//! let token = server.generate_token(EXPIRE_SECONDS, client_id, None).unwrap();
+//! let token = server.generate_token(EXPIRE_SECONDS, TIMEOUT_SECONDS, client_id, None).unwrap();
 //! ```
 
 mod channel;
