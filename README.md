@@ -4,7 +4,7 @@ Pure Rust implementation of the [`netcode.io`](https://github.com/networkprotoco
 
 Standard version **1.02** is supported.
 
-**Note:** `netcode-rs` is **not** production ready yet. There are [`outstanding issues`](https://github.com/yzsolt/netcode-rs/issues) and insufficient test coverage which currently blocks publication on [`crates.io`](https://crates.io/). Contributions are welcome, of course!
+**Note:** `netcode-rs` is **not** production ready yet. There are [outstanding issues](https://github.com/yzsolt/netcode-rs/issues) and insufficient test coverage which currently blocks publication on [`crates.io`](https://crates.io/). Contributions are welcome, of course!
 
 # Original implementation
 
