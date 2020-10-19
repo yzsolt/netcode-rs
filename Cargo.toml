@@ -3,8 +3,12 @@ name = "netcode-rs"
 version = "0.1.0"
 edition = "2018"
 authors = ["Zsolt Bölöny <bolony.zsolt@gmail.com>"]
-keywords = ["netcode"]
+keywords = ["netcode", "udp", "gamedev", "networking"]
 description = "Pure Rust implementation of the netcode.io protocol"
+license = "MIT"
+readme = "README.md"
+categories = ["network-programming", "game-development"]
+repository = "https://github.com/yzsolt/netcode-rs"
 
 [dependencies]
 log = "0.4"
