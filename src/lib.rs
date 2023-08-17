@@ -1,4 +1,4 @@
-//! Rust implementation of netcode.io protocol.
+//! Pure Rust implementation of the [`netcode.io`](https://github.com/networkprotocol/netcode) protocol.
 //!
 //! This crate contains [`Server`](struct.Server.html), [`Client`](struct.Client.html) and [`ConnectToken`](struct.ConnectToken.html) used to establish a netcode.io session.
 //!
@@ -8,11 +8,11 @@
 //! the token. Note that private keys are included in the clear so HTTPS or other secure measures for delivering the token to the client are required.
 //!
 //! # Server
-//! The netcode.io server is created with the [`UDPServer`](type.UdpServer.html)::new(...) call. It accepts a local address, number of clients and private key
+//! The netcode.io server is created with the [`UdpServer`](type.UdpServer.html)::new call. It accepts a local address, number of clients and private key
 //! used to sign the `ConnectToken`s send to the connecting clients.
 //!
 //! # Client
-//! The netcode.io client is created with the [`UDPClient`](type.UdpClient.html)::new(...) call. It accepts a connection token that has been handed out from a
+//! The netcode.io client is created with the [`UdpClient`](type.UdpClient.html)::new call. It accepts a connection token that has been handed out from a
 //! webserver or equivalent secure connection.
 //!
 //! # Server Example

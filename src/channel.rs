@@ -7,20 +7,21 @@ use crate::socket::SocketProvider;
 use log::*;
 use std::net::SocketAddr;
 
-pub const TIMEOUT_SECONDS: u32 = 5;
 pub const KEEPALIVE_RETRY: f64 = 1.0;
 
 #[derive(Clone, Debug)]
 pub struct KeepAliveState {
     pub last_sent: f64,
     pub last_response: f64,
+    timeout_sec: u32,
 }
 
 impl KeepAliveState {
-    pub fn new(current_time: f64) -> Self {
+    pub fn new(current_time: f64, timeout_sec: u32) -> Self {
         Self {
             last_sent: current_time,
             last_response: current_time,
+            timeout_sec,
         }
     }
 
@@ -33,7 +34,7 @@ impl KeepAliveState {
     }
 
     pub fn has_expired(&self, time: f64) -> bool {
-        self.last_response + f64::from(TIMEOUT_SECONDS) < time
+        self.last_response + (self.timeout_sec as f64) < time
     }
 
     pub fn should_send_keepalive(&self, time: f64) -> bool {
@@ -69,9 +70,10 @@ impl Channel {
         client_idx: u32,
         max_clients: u32,
         time: f64,
+        timeout_sec: u32,
     ) -> Self {
         Self {
-            keep_alive: KeepAliveState::new(time),
+            keep_alive: KeepAliveState::new(time, timeout_sec),
             send_key: *send_key,
             recv_key: *recv_key,
             replay_protection: ReplayProtection::new(),

@@ -124,6 +124,7 @@ where
                 0,
                 0,
                 self.time,
+                self.token.timeout_sec,
             );
         }
     }
@@ -267,6 +268,7 @@ where
             0,
             0,
             0.0,
+            token.timeout_sec,
         );
 
         let mut data = ClientData {

@@ -517,7 +517,7 @@ impl HostList {
     where
         R: io::Read,
     {
-        let host_count = source.read_u32::<LittleEndian>()?;
+        let host_count = source.read_u32::<LittleEndian>()?; // TODO: error on invalid host_count
         let mut hosts = [None; NETCODE_MAX_SERVERS_PER_CONNECT];
 
         for host in hosts.iter_mut().take(host_count as usize) {
