@@ -64,6 +64,7 @@ type ClientVec = Vec<Option<Connection>>;
 /// # Example
 /// ```rust
 /// use netcode_rs::{UdpServer, ServerEvent, generate_key, NETCODE_MAX_PAYLOAD_SIZE};
+/// use std::time::Duration;
 ///
 /// fn run_server() {
 ///     const PROTOCOL_ID: u64 = 0xFFEE;
@@ -74,7 +75,7 @@ type ClientVec = Vec<Option<Connection>>;
 ///                                     &generate_key()).unwrap();
 ///
 ///     loop {
-///         server.update(1.0 / 10.0);
+///         server.update(Duration::from_millis(100));
 ///         let mut packet_data = [0; NETCODE_MAX_PAYLOAD_SIZE];
 ///         match server.next_event(&mut packet_data) {
 ///             Ok(Some(e)) => {

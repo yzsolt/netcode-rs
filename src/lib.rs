@@ -18,6 +18,7 @@
 //! # Server Example
 //! ```rust
 //! use netcode_rs::{UdpServer, ServerEvent, generate_key, NETCODE_MAX_PAYLOAD_SIZE};
+//! use std::time::Duration;
 //!
 //! fn run_server() {
 //!     const PROTOCOL_ID: u64 = 0xFFEE;
@@ -28,7 +29,7 @@
 //!                                     &generate_key()).unwrap();
 //!
 //!     loop {
-//!         server.update(1.0 / 10.0);
+//!         server.update(Duration::from_millis(100));
 //!         let mut packet_data = [0; NETCODE_MAX_PAYLOAD_SIZE];
 //!         match server.next_event(&mut packet_data) {
 //!             Ok(Some(e)) => {
@@ -54,7 +55,7 @@
 //! # Client Example
 //! ```rust
 //! use netcode_rs::{UdpClient, ClientEvent, ClientState, ConnectToken, NETCODE_MAX_PAYLOAD_SIZE};
-//! use std::io;
+//! use std::{io, time::Duration};
 //!
 //! fn run_client() {
 //!     let token_data = [0; 1024]; //Note that this should come from your webserver
@@ -64,7 +65,7 @@
 //!     let token = ConnectToken::read(&mut io::Cursor::new(&token_data[..])).unwrap();
 //!     let mut client = UdpClient::new(&token).unwrap();
 //!     loop {
-//!         client.update(1.0 / 10.0);
+//!         client.update(Duration::from_millis(100));
 //!         let mut packet_data = [0; NETCODE_MAX_PAYLOAD_SIZE];
 //!         match client.next_event(&mut packet_data) {
 //!             Ok(Some(e)) => {
@@ -148,9 +149,7 @@ mod socket;
 mod token;
 
 pub use crate::client::{Client, ClientEvent, State as ClientState, UdpClient};
-pub use crate::common::{
-    Key, NETCODE_MAX_PACKET_SIZE, NETCODE_MAX_PAYLOAD_SIZE,
-};
+pub use crate::common::{Key, NETCODE_MAX_PACKET_SIZE, NETCODE_MAX_PAYLOAD_SIZE};
 pub use crate::crypto::generate_key;
 pub use crate::error::*;
 pub use crate::server::{Server, ServerEvent, UdpServer};
