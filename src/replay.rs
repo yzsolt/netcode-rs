@@ -81,7 +81,8 @@ mod test {
 
             // jumping ahead to a much higher sequence should be considered not already received
             assert!(
-                !replay_protection.packet_already_received(MAX_SEQUENCE + REPLAY_BUFFER_SIZE as u64)
+                !replay_protection
+                    .packet_already_received(MAX_SEQUENCE + REPLAY_BUFFER_SIZE as u64)
             );
 
             // old packets should be considered already received
