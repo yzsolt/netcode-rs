@@ -1,7 +1,8 @@
 use crate::common::*;
 
+use chacha20poly1305::KeyInit;
 use chacha20poly1305::aead::generic_array::GenericArray;
-use chacha20poly1305::aead::{Aead, NewAead, Nonce, Payload};
+use chacha20poly1305::aead::{Aead, Nonce, Payload};
 
 use std::io;
 
@@ -31,14 +32,14 @@ pub fn generate_key() -> Key {
 }
 
 pub fn random_bytes(out: &mut [u8]) {
-    getrandom::getrandom(out).unwrap();
+    getrandom::fill(out).unwrap();
 }
 
-pub fn encode<T: Aead + NewAead>(
+pub fn encode<T: Aead + KeyInit>(
     out: &mut [u8],
     data: &[u8],
     additional_data: Option<&[u8]>,
-    nonce: &Nonce::<T::NonceSize>,
+    nonce: &Nonce<T>,
     key: &Key,
 ) -> Result<usize, EncryptError> {
     if out.len() < data.len() + NETCODE_ENCRYPT_EXTA_BYTES {
@@ -57,17 +58,15 @@ pub fn encode<T: Aead + NewAead>(
             out[0..cipher_text.len()].copy_from_slice(&cipher_text);
             Ok(cipher_text.len())
         }
-        Err(_) => {
-            Err(EncryptError::Failed)
-        }
+        Err(_) => Err(EncryptError::Failed),
     }
 }
 
-pub fn decode<T: Aead + NewAead>(
+pub fn decode<T: Aead + KeyInit>(
     out: &mut [u8],
     data: &[u8],
     additional_data: Option<&[u8]>,
-    nonce: &Nonce::<T::NonceSize>,
+    nonce: &Nonce<T>,
     key: &Key,
 ) -> Result<usize, EncryptError> {
     if out.len() < data.len() - NETCODE_ENCRYPT_EXTA_BYTES {
@@ -86,8 +85,6 @@ pub fn decode<T: Aead + NewAead>(
             out[0..plain_text.len()].copy_from_slice(&plain_text);
             Ok(plain_text.len())
         }
-        Err(_) => {
-            Err(EncryptError::Failed)
-        }
+        Err(_) => Err(EncryptError::Failed),
     }
 }

@@ -1,7 +1,7 @@
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
 
-use chacha20poly1305::aead::Nonce;
 use chacha20poly1305::XChaCha20Poly1305;
+use chacha20poly1305::aead::Nonce;
 
 use std::io;
 use std::io::Write;
@@ -181,6 +181,7 @@ impl ConnectToken {
     /// `client_id`: Unique client identifier.
     ///
     /// `user_data`: Client specific userdata.
+    #[allow(clippy::too_many_arguments)]
     pub fn generate_with_string<H, I>(
         hosts: H,
         private_key: &Key,
@@ -235,6 +236,7 @@ impl ConnectToken {
     /// `client_id`: Unique client identifier.
     ///
     /// `user_data`: Client specific userdata.
+    #[allow(clippy::too_many_arguments)]
     pub fn generate<H>(
         hosts: H,
         private_key: &Key,
@@ -264,6 +266,7 @@ impl ConnectToken {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn generate_internal<H>(
         hosts: H,
         private_key: &Key,
@@ -300,10 +303,7 @@ impl ConnectToken {
 
     /// Decodes the private data stored by this connection token.
     /// `private_key` - Server's private key used to generate this token.
-    pub fn decode(
-        &mut self,
-        private_key: &Key,
-    ) -> Result<PrivateData, DecodeError> {
+    pub fn decode(&mut self, private_key: &Key) -> Result<PrivateData, DecodeError> {
         PrivateData::decode(
             &self.private_data,
             self.protocol,
@@ -380,12 +380,7 @@ impl ConnectToken {
 }
 
 impl PrivateData {
-    pub fn new<H>(
-        client_id: u64,
-        timeout_sec: u32,
-        hosts: H,
-        user_data: Option<&UserData>,
-    ) -> Self
+    pub fn new<H>(client_id: u64, timeout_sec: u32, hosts: H, user_data: Option<&UserData>) -> Self
     where
         H: Iterator<Item = SocketAddr>,
     {
@@ -422,7 +417,7 @@ impl PrivateData {
             &mut decoded,
             encoded,
             Some(&additional_data),
-            Nonce::from_slice(nonce),
+            Nonce::<XChaCha20Poly1305>::from_slice(nonce),
             private_key,
         )?;
 
@@ -447,7 +442,7 @@ impl PrivateData {
             &mut out[..],
             &scratch,
             Some(&additional_data),
-            Nonce::from_slice(nonce),
+            Nonce::<XChaCha20Poly1305>::from_slice(nonce),
             private_key,
         )?;
 
@@ -541,7 +536,7 @@ impl HostList {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidData,
                         "Unknown ip address type",
-                    ))
+                    ));
                 }
             }
         }
@@ -717,9 +712,6 @@ mod test {
         assert_eq!(decoded.client_id, client_id);
         assert_eq!(decoded.client_to_server_key, token.client_to_server_key);
         assert_eq!(decoded.server_to_client_key, token.server_to_client_key);
-
-        for i in 0..user_data.len() {
-            assert_eq!(decoded.user_data[i], user_data[i]);
-        }
+        assert_eq!(decoded.user_data, user_data);
     }
 }

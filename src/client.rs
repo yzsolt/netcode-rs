@@ -8,8 +8,7 @@ use crate::token::ConnectToken;
 use log::*;
 use std::io;
 use std::net::{SocketAddr, UdpSocket};
-#[cfg(test)]
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// States represented by the client
 #[derive(Debug, Clone)]
@@ -32,12 +31,14 @@ pub enum State {
     Connected,
 }
 
+#[allow(clippy::large_enum_variant)]
 enum InternalState {
     Connecting(usize, ConnectSequence),
     Connected,
     Disconnected,
 }
 
+#[allow(clippy::large_enum_variant)]
 enum ConnectSequence {
     SendingToken,
     SendingChallenge(u64, [u8; NETCODE_CHALLENGE_TOKEN_BYTES]),
@@ -47,7 +48,7 @@ impl Clone for ConnectSequence {
     fn clone(&self) -> Self {
         match self {
             ConnectSequence::SendingToken => ConnectSequence::SendingToken,
-            ConnectSequence::SendingChallenge(seq, ref token) => {
+            ConnectSequence::SendingChallenge(seq, token) => {
                 ConnectSequence::SendingChallenge(*seq, *token)
             }
         }
@@ -78,7 +79,7 @@ struct ClientData<I, S>
 where
     I: SocketProvider<I, S>,
 {
-    time: f64,
+    time: Instant,
     ext_state: State,
     channel: Channel,
     socket: I,
@@ -168,7 +169,7 @@ where
         idx: usize,
     ) -> Result<Option<ClientEvent>, UpdateError> {
         match packet {
-            packet::Packet::Challenge(ref challenge) => match state {
+            packet::Packet::Challenge(challenge) => match state {
                 ConnectSequence::SendingToken => {
                     trace!("Got challenge token, moving to response");
 
@@ -259,6 +260,8 @@ where
             socket.local_addr().unwrap()
         );
 
+        let now = Instant::now();
+
         let channel = Channel::new(
             &token.client_to_server_key,
             &token.server_to_client_key,
@@ -266,14 +269,14 @@ where
             token.protocol,
             0,
             0,
-            0.0,
+            now,
         );
 
         let mut data = ClientData {
             channel,
             socket,
             socket_state,
-            time: 0.0,
+            time: now,
             ext_state: State::SendingConnectionRequest,
             token: token.clone(),
         };
@@ -287,7 +290,7 @@ where
     }
 
     /// Updates time elapsed since last client iteration.
-    pub fn update(&mut self, elapsed: f64) {
+    pub fn update(&mut self, elapsed: Duration) {
         self.data.time += elapsed;
     }
 
@@ -465,7 +468,7 @@ mod test {
         pub fn new(in_token: Option<ConnectToken>) -> TestHarness<I, S> {
             let private_key = crypto::generate_key();
 
-            let addr = format!("127.0.0.1:0");
+            let addr = "127.0.0.1:0".to_string();
             let (server, mut client) = if let Some(ref token) = in_token {
                 let client = Client::<I, S>::new_with_state(token, I::new_state()).unwrap();
                 (None, client)
@@ -490,10 +493,7 @@ mod test {
             TestHarness { server, client }
         }
 
-        pub fn generate_connect_token(
-            private_key: &Key,
-            addr: SocketAddr,
-        ) -> token::ConnectToken {
+        pub fn generate_connect_token(private_key: &Key, addr: SocketAddr) -> token::ConnectToken {
             let mut nonce = token::ConnectTokenNonce::default();
             crypto::random_bytes(&mut nonce);
 
@@ -512,14 +512,14 @@ mod test {
 
         pub fn update_client(&mut self) -> Option<ClientEvent> {
             let mut scratch = [0; NETCODE_MAX_PAYLOAD_SIZE];
-            self.client.update(0.0);
+            self.client.update(Duration::ZERO);
             self.client.next_event(&mut scratch).unwrap()
         }
 
         pub fn update_server(&mut self) -> Option<ServerEvent> {
             if let Some(ref mut server) = self.server {
                 let mut scratch = [0; NETCODE_MAX_PAYLOAD_SIZE];
-                server.update(0.0);
+                server.update(Duration::ZERO);
                 server.next_event(&mut scratch).unwrap()
             } else {
                 None
@@ -533,19 +533,19 @@ mod test {
 
         match harness.client.get_state() {
             State::SendingConnectionRequest => (),
-            _ => assert!(false),
+            _ => unreachable!(),
         }
 
         harness.update_server();
         match harness.update_client().unwrap() {
             ClientEvent::NewState(State::SendingConnectionResponse) => (),
-            s => assert!(false, "{:?}", s),
+            s => unreachable!("{:?}", s),
         }
 
         harness.update_server();
         match harness.update_client().unwrap() {
             ClientEvent::NewState(State::Connected) => (),
-            s => assert!(false, "{:?}", s),
+            s => unreachable!("{:?}", s),
         }
     }
 
@@ -561,19 +561,19 @@ mod test {
         harness.update_server();
         match harness.update_client().unwrap() {
             ClientEvent::NewState(State::Connected) => (),
-            s => assert!(false, "{:?}", s),
+            s => unreachable!("{:?}", s),
         }
 
         for i in 1..NETCODE_MAX_PAYLOAD_SIZE {
             let mut data = [0; NETCODE_MAX_PAYLOAD_SIZE];
-            for d in 0..i {
-                data[d] = d as u8;
+            for (i, d) in data.iter_mut().enumerate() {
+                *d = i as u8;
             }
 
             harness.client.send(&data[..i]).unwrap();
             if let Some(server) = harness.server.as_mut() {
                 {
-                    server.update(0.0);
+                    server.update(Duration::ZERO);
                     let mut payload = [0; NETCODE_MAX_PAYLOAD_SIZE];
                     match server.next_event(&mut payload) {
                         Ok(Some(ServerEvent::Packet(client_id, len))) => {
@@ -583,14 +583,14 @@ mod test {
                                 assert_eq!(payload[d], data[d]);
                             }
                         }
-                        Ok(e) => assert!(false, "{:?}", e),
-                        Err(e) => assert!(false, "{:?}", e),
+                        Ok(e) => unreachable!("{:?}", e),
+                        Err(e) => unreachable!("{:?}", e),
                     }
                 }
 
                 {
                     server.send(CLIENT_ID, &data[..i]).unwrap();
-                    harness.client.update(0.0);
+                    harness.client.update(Duration::ZERO);
                     let mut payload = [0; NETCODE_MAX_PAYLOAD_SIZE];
                     match harness.client.next_event(&mut payload) {
                         Ok(Some(ClientEvent::Packet(len))) => {
@@ -599,12 +599,12 @@ mod test {
                                 assert_eq!(payload[d], data[d]);
                             }
                         }
-                        Ok(e) => assert!(false, "{:?}", e),
-                        Err(e) => assert!(false, "{:?}", e),
+                        Ok(e) => unreachable!("{:?}", e),
+                        Err(e) => unreachable!("{:?}", e),
                     }
                 }
             } else {
-                assert!(false);
+                unreachable!();
             }
         }
     }
