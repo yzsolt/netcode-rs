@@ -6,37 +6,39 @@ use crate::socket::SocketProvider;
 
 use log::*;
 use std::net::SocketAddr;
+use std::time::Duration;
+use std::time::Instant;
 
-pub const TIMEOUT_SECONDS: u32 = 5;
-pub const KEEPALIVE_RETRY: f64 = 1.0;
+pub const TIMEOUT: Duration = Duration::from_secs(5);
+pub const KEEPALIVE_RETRY: Duration = Duration::from_secs(1);
 
 #[derive(Clone, Debug)]
 pub struct KeepAliveState {
-    pub last_sent: f64,
-    pub last_response: f64,
+    pub last_sent: Instant,
+    pub last_response: Instant,
 }
 
 impl KeepAliveState {
-    pub fn new(current_time: f64) -> Self {
+    pub fn new(current_time: Instant) -> Self {
         Self {
             last_sent: current_time,
             last_response: current_time,
         }
     }
 
-    pub fn update_sent(&mut self, time: f64) {
+    pub fn update_sent(&mut self, time: Instant) {
         self.last_sent = time;
     }
 
-    pub fn update_response(&mut self, response: f64) {
+    pub fn update_response(&mut self, response: Instant) {
         self.last_response = response;
     }
 
-    pub fn has_expired(&self, time: f64) -> bool {
-        self.last_response + f64::from(TIMEOUT_SECONDS) < time
+    pub fn has_expired(&self, time: Instant) -> bool {
+        self.last_response + TIMEOUT < time
     }
 
-    pub fn should_send_keepalive(&self, time: f64) -> bool {
+    pub fn should_send_keepalive(&self, time: Instant) -> bool {
         self.last_sent + KEEPALIVE_RETRY < time
     }
 }
@@ -68,7 +70,7 @@ impl Channel {
         protocol_id: u64,
         client_idx: u32,
         max_clients: u32,
-        time: f64,
+        time: Instant,
     ) -> Self {
         Self {
             keep_alive: KeepAliveState::new(time),
@@ -85,7 +87,7 @@ impl Channel {
 
     pub fn send<I, S>(
         &mut self,
-        current_time: f64,
+        current_time: Instant,
         packet: &Packet,
         payload: Option<&[u8]>,
         socket: &mut I,
@@ -112,7 +114,7 @@ impl Channel {
 
     pub fn recv(
         &mut self,
-        current_time: f64,
+        current_time: Instant,
         packet: &[u8],
         out_payload: &mut [u8; NETCODE_MAX_PAYLOAD_SIZE],
     ) -> Result<Packet, RecvError> {
@@ -137,7 +139,7 @@ impl Channel {
 
     pub fn send_keep_alive<I, S>(
         &mut self,
-        current_time: f64,
+        current_time: Instant,
         socket: &mut I,
     ) -> Result<usize, SendError>
     where
@@ -153,7 +155,7 @@ impl Channel {
 
     pub fn update<I, S>(
         &mut self,
-        current_time: f64,
+        current_time: Instant,
         socket: &mut I,
         send_keep_alive: bool,
     ) -> Result<UpdateResult, SendError>

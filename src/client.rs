@@ -8,8 +8,7 @@ use crate::token::ConnectToken;
 use log::*;
 use std::io;
 use std::net::{SocketAddr, UdpSocket};
-#[cfg(test)]
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// States represented by the client
 #[derive(Debug, Clone)]
@@ -78,7 +77,7 @@ struct ClientData<I, S>
 where
     I: SocketProvider<I, S>,
 {
-    time: f64,
+    time: Instant,
     ext_state: State,
     channel: Channel,
     socket: I,
@@ -259,6 +258,8 @@ where
             socket.local_addr().unwrap()
         );
 
+        let now = Instant::now();
+
         let channel = Channel::new(
             &token.client_to_server_key,
             &token.server_to_client_key,
@@ -266,14 +267,14 @@ where
             token.protocol,
             0,
             0,
-            0.0,
+            now,
         );
 
         let mut data = ClientData {
             channel,
             socket,
             socket_state,
-            time: 0.0,
+            time: now,
             ext_state: State::SendingConnectionRequest,
             token: token.clone(),
         };
@@ -287,7 +288,7 @@ where
     }
 
     /// Updates time elapsed since last client iteration.
-    pub fn update(&mut self, elapsed: f64) {
+    pub fn update(&mut self, elapsed: Duration) {
         self.data.time += elapsed;
     }
 
@@ -509,14 +510,14 @@ mod test {
 
         pub fn update_client(&mut self) -> Option<ClientEvent> {
             let mut scratch = [0; NETCODE_MAX_PAYLOAD_SIZE];
-            self.client.update(0.0);
+            self.client.update(Duration::ZERO);
             self.client.next_event(&mut scratch).unwrap()
         }
 
         pub fn update_server(&mut self) -> Option<ServerEvent> {
             if let Some(ref mut server) = self.server {
                 let mut scratch = [0; NETCODE_MAX_PAYLOAD_SIZE];
-                server.update(0.0);
+                server.update(Duration::ZERO);
                 server.next_event(&mut scratch).unwrap()
             } else {
                 None
@@ -570,7 +571,7 @@ mod test {
             harness.client.send(&data[..i]).unwrap();
             if let Some(server) = harness.server.as_mut() {
                 {
-                    server.update(0.0);
+                    server.update(Duration::ZERO);
                     let mut payload = [0; NETCODE_MAX_PAYLOAD_SIZE];
                     match server.next_event(&mut payload) {
                         Ok(Some(ServerEvent::Packet(client_id, len))) => {
@@ -587,7 +588,7 @@ mod test {
 
                 {
                     server.send(CLIENT_ID, &data[..i]).unwrap();
-                    harness.client.update(0.0);
+                    harness.client.update(Duration::ZERO);
                     let mut payload = [0; NETCODE_MAX_PAYLOAD_SIZE];
                     match harness.client.next_event(&mut payload) {
                         Ok(Some(ClientEvent::Packet(len))) => {

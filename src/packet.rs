@@ -3,8 +3,8 @@ use std::io::Write;
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
-use chacha20poly1305::aead::Nonce;
 use chacha20poly1305::ChaCha20Poly1305;
+use chacha20poly1305::aead::Nonce;
 
 use crate::common::*;
 use crate::crypto;
@@ -136,7 +136,9 @@ fn get_additional_data(
 
 fn sequence_to_nonce(sequence: u64) -> [u8; 12] {
     let mut nonce = [0; 12];
-    io::Cursor::new(&mut nonce[4..]).write_u64::<LittleEndian>(sequence).unwrap();
+    io::Cursor::new(&mut nonce[4..])
+        .write_u64::<LittleEndian>(sequence)
+        .unwrap();
 
     nonce
 }
@@ -170,7 +172,7 @@ pub fn decode(
             out,
             payload,
             Some(&additional_data[..]),
-            Nonce::from_slice(&nonce),
+            Nonce::<ChaCha20Poly1305>::from_slice(&nonce),
             private_key,
         )?;
 
@@ -239,7 +241,7 @@ pub fn encode(
             &mut out[offset..],
             &scratch[..scratch_written as usize],
             Some(&additional_data[..]),
-            Nonce::from_slice(&nonce),
+            Nonce::<ChaCha20Poly1305>::from_slice(&nonce),
             private_key,
         )?;
 
@@ -398,7 +400,7 @@ impl ChallengePacket {
             &mut token_data[..],
             &scratch[..],
             None,
-            Nonce::from_slice(&nonce),
+            Nonce::<ChaCha20Poly1305>::from_slice(&nonce),
             challenge_key,
         )?;
 
@@ -409,10 +411,7 @@ impl ChallengePacket {
     }
 
     #[cfg(test)]
-    pub fn decode(
-        &self,
-        challenge_key: &Key,
-    ) -> Result<ChallengeToken, ChallengeEncodeError> {
+    pub fn decode(&self, challenge_key: &Key) -> Result<ChallengeToken, ChallengeEncodeError> {
         let mut decoded = [0; NETCODE_CHALLENGE_TOKEN_BYTES];
         let nonce = sequence_to_nonce(self.token_sequence);
 
@@ -420,7 +419,7 @@ impl ChallengePacket {
             &mut decoded,
             &self.token_data,
             None,
-            Nonce::from_slice(&nonce),
+            Nonce::<ChaCha20Poly1305>::from_slice(&nonce),
             challenge_key,
         )?;
 
@@ -472,10 +471,7 @@ impl ResponsePacket {
         })
     }
 
-    pub fn decode(
-        &self,
-        challenge_key: &Key,
-    ) -> Result<ChallengeToken, ChallengeEncodeError> {
+    pub fn decode(&self, challenge_key: &Key) -> Result<ChallengeToken, ChallengeEncodeError> {
         let mut decoded = [0; NETCODE_CHALLENGE_TOKEN_BYTES];
         let nonce = sequence_to_nonce(self.token_sequence);
 
@@ -483,7 +479,7 @@ impl ResponsePacket {
             &mut decoded,
             &self.token_data,
             None,
-            Nonce::from_slice(&nonce),
+            Nonce::<ChaCha20Poly1305>::from_slice(&nonce),
             challenge_key,
         )?;
 

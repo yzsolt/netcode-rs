@@ -1,7 +1,7 @@
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
 
-use chacha20poly1305::aead::Nonce;
 use chacha20poly1305::XChaCha20Poly1305;
+use chacha20poly1305::aead::Nonce;
 
 use std::io;
 use std::io::Write;
@@ -300,10 +300,7 @@ impl ConnectToken {
 
     /// Decodes the private data stored by this connection token.
     /// `private_key` - Server's private key used to generate this token.
-    pub fn decode(
-        &mut self,
-        private_key: &Key,
-    ) -> Result<PrivateData, DecodeError> {
+    pub fn decode(&mut self, private_key: &Key) -> Result<PrivateData, DecodeError> {
         PrivateData::decode(
             &self.private_data,
             self.protocol,
@@ -380,12 +377,7 @@ impl ConnectToken {
 }
 
 impl PrivateData {
-    pub fn new<H>(
-        client_id: u64,
-        timeout_sec: u32,
-        hosts: H,
-        user_data: Option<&UserData>,
-    ) -> Self
+    pub fn new<H>(client_id: u64, timeout_sec: u32, hosts: H, user_data: Option<&UserData>) -> Self
     where
         H: Iterator<Item = SocketAddr>,
     {
@@ -422,7 +414,7 @@ impl PrivateData {
             &mut decoded,
             encoded,
             Some(&additional_data),
-            Nonce::from_slice(nonce),
+            Nonce::<XChaCha20Poly1305>::from_slice(nonce),
             private_key,
         )?;
 
@@ -447,7 +439,7 @@ impl PrivateData {
             &mut out[..],
             &scratch,
             Some(&additional_data),
-            Nonce::from_slice(nonce),
+            Nonce::<XChaCha20Poly1305>::from_slice(nonce),
             private_key,
         )?;
 
@@ -541,7 +533,7 @@ impl HostList {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidData,
                         "Unknown ip address type",
-                    ))
+                    ));
                 }
             }
         }

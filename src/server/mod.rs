@@ -4,8 +4,7 @@ use log::*;
 
 use std::io;
 use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
-#[cfg(test)]
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::common::*;
 use crate::crypto;
@@ -112,7 +111,7 @@ struct ServerInternal<I, S> {
     protocol_id: u64,
     connect_key: Key,
 
-    time: f64,
+    time: Instant,
 
     challenge_sequence: u64,
     challenge_key: Key,
@@ -156,7 +155,7 @@ where
                         listen_socket: s,
                         listen_addr: bind_addr,
                         connect_key: *private_key,
-                        time: 0.0,
+                        time: Instant::now(),
                         challenge_sequence: 0,
                         challenge_key: crypto::generate_key(),
                         client_event_idx: 0,
@@ -226,7 +225,7 @@ where
     }
 
     /// Updates time elapsed since last server iteration.
-    pub fn update(&mut self, elapsed: f64) {
+    pub fn update(&mut self, elapsed: Duration) {
         self.internal.update(elapsed);
     }
 
@@ -391,7 +390,7 @@ impl<I, S> ServerInternal<I, S>
 where
     I: SocketProvider<I, S>,
 {
-    fn update(&mut self, elapsed: f64) {
+    fn update(&mut self, elapsed: Duration) {
         self.time += elapsed;
         self.client_event_idx = 0;
     }
@@ -825,7 +824,7 @@ mod test {
 
         fn validate_challenge(&mut self) {
             let mut data = [0; NETCODE_MAX_PAYLOAD_SIZE];
-            self.server.update(0.0);
+            self.server.update(Duration::ZERO);
             self.server.next_event(&mut data).unwrap();
         }
 
@@ -881,7 +880,7 @@ mod test {
 
         fn validate_response(&mut self) {
             let mut data = [0; NETCODE_MAX_PAYLOAD_SIZE];
-            self.server.update(0.0);
+            self.server.update(Duration::ZERO);
             let event = self.server.next_event(&mut data);
 
             match event {
@@ -934,7 +933,7 @@ mod test {
         }
 
         fn validate_recv_payload(&mut self, payload: &[u8]) {
-            self.server.update(0.0);
+            self.server.update(Duration::ZERO);
             let mut data = [0; NETCODE_MAX_PAYLOAD_SIZE];
 
             loop {
@@ -1001,7 +1000,7 @@ mod test {
         harness.send_connect_packet();
 
         let mut data = [0; NETCODE_MAX_PAYLOAD_SIZE];
-        harness.server.update(0.0);
+        harness.server.update(Duration::ZERO);
         match harness.server.next_event(&mut data) {
             Ok(Some(ServerEvent::RejectedClient)) => {}
             _ => assert!(false),
@@ -1019,7 +1018,7 @@ mod test {
         harness.send_connect_packet();
 
         let mut data = [0; NETCODE_MAX_PAYLOAD_SIZE];
-        harness.server.update(0.0);
+        harness.server.update(Duration::ZERO);
         match harness.server.next_event(&mut data) {
             Ok(Some(ServerEvent::RejectedClient)) => {}
             _ => assert!(false),
@@ -1051,7 +1050,7 @@ mod test {
             .socket
             .send_to(&packet[..plen], harness.server.get_local_addr().unwrap())
             .unwrap();
-        harness.server.update(0.0);
+        harness.server.update(Duration::ZERO);
         let mut scratch = [0; NETCODE_MAX_PAYLOAD_SIZE];
         match harness.server.next_event(&mut scratch) {
             Ok(Some(ServerEvent::ReplayRejected(cid))) => assert_eq!(cid, CLIENT_ID),

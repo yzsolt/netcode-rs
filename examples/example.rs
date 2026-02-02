@@ -7,15 +7,14 @@
 //! terminate when it hears the disconnect from the client.
 
 use netcode_rs::{
-    ClientEvent, ClientState, ServerEvent, UdpClient, UdpServer, generate_key, NETCODE_MAX_PAYLOAD_SIZE,
+    ClientEvent, ClientState, NETCODE_MAX_PAYLOAD_SIZE, ServerEvent, UdpClient, UdpServer,
+    generate_key,
 };
 
 use std::io::{self, BufRead};
 use std::sync::mpsc;
 use std::thread;
-use std::time::Duration;
-
-use time::OffsetDateTime;
+use std::time::{Duration, Instant};
 
 const MAX_CLIENTS: u32 = 256; //Total number of clients we support
 const PROTOCOL_ID: u64 = 0x00FF_DDEE; //Unique protocol id for our application.
@@ -23,23 +22,22 @@ const TOKEN_LIFETIME: usize = 15; //Our token lives 15 seconds.
 const CONNECTION_TIMEOUT: u32 = 15; // Time in seconds connection should wait before disconnecting.
 
 const CLIENT_ID: u64 = 0x00DD_EEFF; //Single unique client id, you'll want to tie this into
-                                    // your user store in production.
+// your user store in production.
 
-const TICK_TIME_MS: f64 = 0.016; //Tick every 16ms
+const TICK_TIME: Duration = Duration::from_millis(16); //Tick every 16ms
 
 //Helper function for sleeping at a regular interval
-fn sleep_for_tick(last_tick: &mut f64) -> f64 {
-    let now = (OffsetDateTime::now_utc() - OffsetDateTime::unix_epoch()).as_seconds_f64();
+fn sleep_for_tick(last_tick: &mut Instant) -> Duration {
+    let now = Instant::now();
 
-    let elapsed = (now - *last_tick).min(TICK_TIME_MS);
+    let elapsed = (now - *last_tick).min(TICK_TIME);
 
-    if elapsed < TICK_TIME_MS {
-        let sleep_ms = ((TICK_TIME_MS - elapsed) * 1000.0).floor() as u64;
-        thread::sleep(Duration::from_millis(sleep_ms));
+    if elapsed < TICK_TIME {
+        thread::sleep(TICK_TIME - elapsed);
     }
 
     *last_tick = now;
-    TICK_TIME_MS
+    TICK_TIME
 }
 
 fn main() {
@@ -53,19 +51,14 @@ fn main() {
     }
     */
 
-    let mut server = UdpServer::new(
-        "127.0.0.1:0",
-        MAX_CLIENTS,
-        PROTOCOL_ID,
-        &generate_key(),
-    )
-    .unwrap();
+    let mut server =
+        UdpServer::new("127.0.0.1:0", MAX_CLIENTS, PROTOCOL_ID, &generate_key()).unwrap();
     let token = server
         .generate_token(TOKEN_LIFETIME, CONNECTION_TIMEOUT, CLIENT_ID, None)
         .unwrap();
 
     let server_thread = thread::spawn(move || {
-        let mut last = 0.0;
+        let mut last = Instant::now();
         loop {
             let elapsed = sleep_for_tick(&mut last);
             server.update(elapsed);
@@ -93,7 +86,7 @@ fn main() {
 
     let (tx, rx) = mpsc::channel();
     let client_thread = thread::spawn(move || {
-        let mut last = 0.0;
+        let mut last = Instant::now();
         loop {
             let elapsed = sleep_for_tick(&mut last);
             client.update(elapsed);
