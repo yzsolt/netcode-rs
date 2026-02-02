@@ -181,6 +181,7 @@ impl ConnectToken {
     /// `client_id`: Unique client identifier.
     ///
     /// `user_data`: Client specific userdata.
+    #[allow(clippy::too_many_arguments)]
     pub fn generate_with_string<H, I>(
         hosts: H,
         private_key: &Key,
@@ -235,6 +236,7 @@ impl ConnectToken {
     /// `client_id`: Unique client identifier.
     ///
     /// `user_data`: Client specific userdata.
+    #[allow(clippy::too_many_arguments)]
     pub fn generate<H>(
         hosts: H,
         private_key: &Key,
@@ -264,6 +266,7 @@ impl ConnectToken {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn generate_internal<H>(
         hosts: H,
         private_key: &Key,
@@ -709,9 +712,6 @@ mod test {
         assert_eq!(decoded.client_id, client_id);
         assert_eq!(decoded.client_to_server_key, token.client_to_server_key);
         assert_eq!(decoded.server_to_client_key, token.server_to_client_key);
-
-        for i in 0..user_data.len() {
-            assert_eq!(decoded.user_data[i], user_data[i]);
-        }
+        assert_eq!(decoded.user_data, user_data);
     }
 }

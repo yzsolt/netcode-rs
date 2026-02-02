@@ -12,8 +12,8 @@ pub trait SocketProvider<I, S> {
 }
 
 impl SocketProvider<UdpSocket, ()> for UdpSocket {
-    fn new_state() -> () {
-        ()
+    fn new_state() {
+        
     }
 
     fn bind(addr: &SocketAddr, _state: &mut ()) -> Result<Self, io::Error> {

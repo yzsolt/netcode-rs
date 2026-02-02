@@ -31,12 +31,14 @@ pub enum State {
     Connected,
 }
 
+#[allow(clippy::large_enum_variant)]
 enum InternalState {
     Connecting(usize, ConnectSequence),
     Connected,
     Disconnected,
 }
 
+#[allow(clippy::large_enum_variant)]
 enum ConnectSequence {
     SendingToken,
     SendingChallenge(u64, [u8; NETCODE_CHALLENGE_TOKEN_BYTES]),
@@ -466,7 +468,7 @@ mod test {
         pub fn new(in_token: Option<ConnectToken>) -> TestHarness<I, S> {
             let private_key = crypto::generate_key();
 
-            let addr = format!("127.0.0.1:0");
+            let addr = "127.0.0.1:0".to_string();
             let (server, mut client) = if let Some(ref token) = in_token {
                 let client = Client::<I, S>::new_with_state(token, I::new_state()).unwrap();
                 (None, client)
@@ -531,19 +533,19 @@ mod test {
 
         match harness.client.get_state() {
             State::SendingConnectionRequest => (),
-            _ => assert!(false),
+            _ => unreachable!(),
         }
 
         harness.update_server();
         match harness.update_client().unwrap() {
             ClientEvent::NewState(State::SendingConnectionResponse) => (),
-            s => assert!(false, "{:?}", s),
+            s => unreachable!("{:?}", s),
         }
 
         harness.update_server();
         match harness.update_client().unwrap() {
             ClientEvent::NewState(State::Connected) => (),
-            s => assert!(false, "{:?}", s),
+            s => unreachable!("{:?}", s),
         }
     }
 
@@ -559,13 +561,13 @@ mod test {
         harness.update_server();
         match harness.update_client().unwrap() {
             ClientEvent::NewState(State::Connected) => (),
-            s => assert!(false, "{:?}", s),
+            s => unreachable!("{:?}", s),
         }
 
         for i in 1..NETCODE_MAX_PAYLOAD_SIZE {
             let mut data = [0; NETCODE_MAX_PAYLOAD_SIZE];
-            for d in 0..i {
-                data[d] = d as u8;
+            for (i, d) in data.iter_mut().enumerate() {
+                *d = i as u8;
             }
 
             harness.client.send(&data[..i]).unwrap();
@@ -581,8 +583,8 @@ mod test {
                                 assert_eq!(payload[d], data[d]);
                             }
                         }
-                        Ok(e) => assert!(false, "{:?}", e),
-                        Err(e) => assert!(false, "{:?}", e),
+                        Ok(e) => unreachable!("{:?}", e),
+                        Err(e) => unreachable!("{:?}", e),
                     }
                 }
 
@@ -597,12 +599,12 @@ mod test {
                                 assert_eq!(payload[d], data[d]);
                             }
                         }
-                        Ok(e) => assert!(false, "{:?}", e),
-                        Err(e) => assert!(false, "{:?}", e),
+                        Ok(e) => unreachable!("{:?}", e),
+                        Err(e) => unreachable!("{:?}", e),
                     }
                 }
             } else {
-                assert!(false);
+                unreachable!();
             }
         }
     }

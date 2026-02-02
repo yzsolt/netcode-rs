@@ -18,6 +18,7 @@ const PACKET_KEEPALIVE: u8 = 4;
 const PACKET_PAYLOAD: u8 = 5;
 const PACKET_DISCONNECT: u8 = 6;
 
+#[allow(clippy::large_enum_variant)]
 pub enum Packet {
     ConnectionRequest(ConnectionRequestPacket),
     ConnectionDenied,
@@ -56,7 +57,7 @@ impl Packet {
 }
 
 fn decode_prefix(value: u8) -> (u8, usize) {
-    ((value & 0xF) as u8, (value >> 4) as usize)
+    ((value & 0xF), (value >> 4) as usize)
 }
 
 fn encode_prefix(value: u8, sequence: u64) -> u8 {
@@ -185,7 +186,8 @@ pub fn decode(
             PACKET_KEEPALIVE => Ok(Packet::KeepAlive(KeepAlivePacket::read(source_data)?)),
             PACKET_PAYLOAD => Ok(Packet::Payload(decoded_len)),
             PACKET_DISCONNECT => Ok(Packet::Disconnect),
-            PACKET_CONNECTION | _ => Err(PacketError::InvalidPacket),
+            PACKET_CONNECTION => Err(PacketError::InvalidPacket),
+            _ => Err(PacketError::InvalidPacket),
         };
 
         packet.map(|p| (sequence, p))
@@ -205,7 +207,7 @@ pub fn encode(
         let mut writer = io::Cursor::new(&mut out[..]);
 
         //First byte is always id + sequence
-        writer.write_u8(encode_prefix(packet.get_type_id() as u8, 0))?;
+        writer.write_u8(encode_prefix(packet.get_type_id(), 0))?;
         req.write(&mut writer)?;
 
         Ok(writer.position() as usize)
@@ -214,7 +216,7 @@ pub fn encode(
             let write = &mut io::Cursor::new(&mut out[..]);
 
             //First byte is always id + sequence
-            let prefix_byte = encode_prefix(packet.get_type_id() as u8, sequence);
+            let prefix_byte = encode_prefix(packet.get_type_id(), sequence);
             write.write_u8(prefix_byte)?;
             write_sequence(write, sequence)?;
 
@@ -590,7 +592,7 @@ mod test {
                 assert_eq!(s, sequence);
                 verify(p);
             }
-            Err(e) => assert!(false, "{:?}", e),
+            Err(e) => unreachable!("{:?}", e),
         }
 
         if let Some(in_payload) = payload {
@@ -632,30 +634,20 @@ mod test {
         let packet = Packet::ConnectionRequest(ConnectionRequestPacket {
             protocol_id,
             nonce,
-            version: NETCODE_VERSION_STRING.clone(),
+            version: *NETCODE_VERSION_STRING,
             token_expire: token.expire_utc,
             private_data: token.private_data,
         });
 
         test_encode_decode(packet, None, Some(pkey), |p| match p {
             Packet::ConnectionRequest(p) => {
-                for i in 0..p.version.len() {
-                    assert_eq!(
-                        p.version[i], NETCODE_VERSION_STRING[i],
-                        "mismatch at index {}",
-                        i
-                    );
-                }
-
+                assert_eq!(p.version, *NETCODE_VERSION_STRING);
                 assert_eq!(p.protocol_id, protocol_id);
                 assert_eq!(p.token_expire, token.expire_utc);
                 assert_eq!(p.nonce, nonce);
-
-                for i in 0..p.private_data.len() {
-                    assert_eq!(p.private_data[i], token.private_data[i]);
-                }
+                assert_eq!(p.private_data, token.private_data);
             }
-            _ => assert!(false),
+            _ => unreachable!(),
         });
     }
 
@@ -663,7 +655,7 @@ mod test {
     fn test_conn_denied_packet() {
         test_encode_decode(Packet::ConnectionDenied, None, None, |p| match p {
             Packet::ConnectionDenied => (),
-            _ => assert!(false),
+            _ => unreachable!(),
         });
     }
 
@@ -671,8 +663,8 @@ mod test {
     fn test_challenge_packet() {
         let token_sequence = 0xFFDD;
         let mut token_data = [0; NETCODE_CHALLENGE_TOKEN_BYTES];
-        for i in 0..token_data.len() {
-            token_data[i] = i as u8;
+        for (i, td) in token_data.iter_mut().enumerate() {
+            *td = i as u8;
         }
 
         test_encode_decode(
@@ -685,11 +677,9 @@ mod test {
             |p| match p {
                 Packet::Challenge(p) => {
                     assert_eq!(p.token_sequence, token_sequence);
-                    for i in 0..token_data.len() {
-                        assert_eq!(p.token_data[i], token_data[i]);
-                    }
+                    assert_eq!(p.token_data, token_data);
                 }
-                _ => assert!(false),
+                _ => unreachable!(),
             },
         );
     }
@@ -698,8 +688,8 @@ mod test {
     fn test_response_packet() {
         let token_sequence = 0xFFDD;
         let mut token_data = [0; NETCODE_CHALLENGE_TOKEN_BYTES];
-        for i in 0..token_data.len() {
-            token_data[i] = i as u8;
+        for (i, td) in token_data.iter_mut().enumerate() {
+            *td = i as u8;
         }
 
         test_encode_decode(
@@ -712,11 +702,9 @@ mod test {
             |p| match p {
                 Packet::Response(p) => {
                     assert_eq!(p.token_sequence, token_sequence);
-                    for i in 0..token_data.len() {
-                        assert_eq!(p.token_data[i], token_data[i]);
-                    }
+                    assert_eq!(p.token_data, token_data);
                 }
-                _ => assert!(false),
+                _ => unreachable!(),
             },
         );
     }
@@ -737,7 +725,7 @@ mod test {
                 Packet::KeepAlive(p) => {
                     assert_eq!(p.client_idx, client_idx);
                 }
-                _ => assert!(false),
+                _ => unreachable!(),
             },
         );
     }
@@ -749,7 +737,7 @@ mod test {
 
             test_encode_decode(Packet::Payload(i), Some(&data[..]), None, |p| match p {
                 Packet::Payload(c) => assert_eq!(c, i),
-                _ => assert!(false),
+                _ => unreachable!(),
             });
         }
     }
@@ -757,8 +745,8 @@ mod test {
     #[test]
     fn test_decode_challenge_token() {
         let mut user_data = [0; token::USER_DATA_LEN];
-        for i in 0..user_data.len() {
-            user_data[i] = i as u8;
+        for (i, ud) in user_data.iter_mut().enumerate() {
+            *ud = i as u8;
         }
 
         let client_id = 5;
@@ -771,8 +759,6 @@ mod test {
 
         let decoded = challenge_packet.decode(&challenge_key).unwrap();
         assert_eq!(decoded.client_id, client_id);
-        for i in 0..user_data.len() {
-            assert_eq!(user_data[i], decoded.user_data[i]);
-        }
+        assert_eq!(user_data, decoded.user_data);
     }
 }

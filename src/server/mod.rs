@@ -310,7 +310,7 @@ where
         let idx = self
             .clients
             .iter()
-            .position(|c| c.as_ref().map_or(false, |c| c.client_id == client_id));
+            .position(|c| c.as_ref().is_some_and(|c| c.client_id == client_id));
 
         if let Some(idx) = idx {
             self.clients[idx] = None;
@@ -439,7 +439,7 @@ where
 
                     Ok(None)
                 } else {
-                    self.send_denied_packet(&addr, &private_data.server_to_client_key)?;
+                    self.send_denied_packet(addr, &private_data.server_to_client_key)?;
                     trace!(
                         "Tried to accept new client but max clients connected: {}",
                         clients.len()
@@ -808,7 +808,7 @@ mod test {
             private_data.copy_from_slice(&self.connect_token.private_data);
 
             let packet = Packet::ConnectionRequest(ConnectionRequestPacket {
-                version: NETCODE_VERSION_STRING.clone(),
+                version: *NETCODE_VERSION_STRING,
                 protocol_id: PROTOCOL_ID,
                 token_expire: self.connect_token.expire_utc,
                 nonce: self.connect_token.nonce,
@@ -845,13 +845,7 @@ mod test {
             .unwrap()
             {
                 (_, Packet::Challenge(packet)) => packet,
-                _ => {
-                    assert!(false);
-                    ChallengePacket {
-                        token_sequence: 0,
-                        token_data: [0; NETCODE_CHALLENGE_TOKEN_BYTES],
-                    }
-                }
+                _ => unreachable!(),
             }
         }
 
@@ -885,7 +879,7 @@ mod test {
 
             match event {
                 Ok(Some(ServerEvent::ClientConnect(CLIENT_ID))) => (),
-                e => assert!(false, "{:?}", e),
+                e => unreachable!("{:?}", e),
             }
 
             let mut scratch = [0; NETCODE_MAX_PACKET_SIZE];
@@ -899,7 +893,7 @@ mod test {
             .unwrap()
             {
                 (_, Packet::KeepAlive(_)) => (),
-                (_, p) => assert!(false, "{:?}", p.get_type_id()),
+                (_, p) => unreachable!("{:?}", p.get_type_id()),
             }
         }
 
@@ -950,7 +944,7 @@ mod test {
                     Ok(Some(ServerEvent::SentKeepAlive(cid))) => {
                         assert_eq!(cid, CLIENT_ID);
                     }
-                    o => assert!(false, "unexpected {:?}", o),
+                    o => unreachable!("unexpected {:?}", o),
                 }
             }
         }
@@ -976,8 +970,8 @@ mod test {
                         assert_eq!(packet_data[i], payload[i]);
                     }
                 }
-                Ok((_, p)) => assert!(false, "unexpected packet type {}", p.get_type_id()),
-                Err(o) => assert!(false, "unexpected {:?}", o),
+                Ok((_, p)) => unreachable!("unexpected packet type {}", p.get_type_id()),
+                Err(o) => unreachable!("unexpected {:?}", o),
             }
         }
     }
@@ -1003,7 +997,7 @@ mod test {
         harness.server.update(Duration::ZERO);
         match harness.server.next_event(&mut data) {
             Ok(Some(ServerEvent::RejectedClient)) => {}
-            _ => assert!(false),
+            _ => unreachable!(),
         }
     }
 
@@ -1021,7 +1015,7 @@ mod test {
         harness.server.update(Duration::ZERO);
         match harness.server.next_event(&mut data) {
             Ok(Some(ServerEvent::RejectedClient)) => {}
-            _ => assert!(false),
+            _ => unreachable!(),
         }
     }
 
@@ -1035,8 +1029,8 @@ mod test {
         harness.validate_response();
 
         let mut data = [0; NETCODE_MAX_PAYLOAD_SIZE];
-        for i in 0..NETCODE_MAX_PAYLOAD_SIZE {
-            data[i] = i as u8;
+        for (i, d) in data.iter_mut().enumerate() {
+            *d = i as u8;
         }
 
         let (plen, packet) = harness.generate_payload_packet(&data);
@@ -1054,7 +1048,7 @@ mod test {
         let mut scratch = [0; NETCODE_MAX_PAYLOAD_SIZE];
         match harness.server.next_event(&mut scratch) {
             Ok(Some(ServerEvent::ReplayRejected(cid))) => assert_eq!(cid, CLIENT_ID),
-            o => assert!(false, "unexpected {:?}", o),
+            o => unreachable!("unexpected {:?}", o),
         }
     }
 
@@ -1069,8 +1063,8 @@ mod test {
 
         for s in 1..NETCODE_MAX_PAYLOAD_SIZE {
             let mut data = [0; NETCODE_MAX_PAYLOAD_SIZE];
-            for i in 0..s {
-                data[i] = i as u8;
+            for (i, d) in data.iter_mut().enumerate().take(s) {
+                *d = i as u8;
             }
 
             harness.send_payload(&data[..s]);
