@@ -47,7 +47,7 @@ impl Clone for ConnectSequence {
     fn clone(&self) -> Self {
         match self {
             ConnectSequence::SendingToken => ConnectSequence::SendingToken,
-            ConnectSequence::SendingChallenge(seq, ref token) => {
+            ConnectSequence::SendingChallenge(seq, token) => {
                 ConnectSequence::SendingChallenge(*seq, *token)
             }
         }
@@ -168,7 +168,7 @@ where
         idx: usize,
     ) -> Result<Option<ClientEvent>, UpdateError> {
         match packet {
-            packet::Packet::Challenge(ref challenge) => match state {
+            packet::Packet::Challenge(challenge) => match state {
                 ConnectSequence::SendingToken => {
                     trace!("Got challenge token, moving to response");
 
@@ -490,10 +490,7 @@ mod test {
             TestHarness { server, client }
         }
 
-        pub fn generate_connect_token(
-            private_key: &Key,
-            addr: SocketAddr,
-        ) -> token::ConnectToken {
+        pub fn generate_connect_token(private_key: &Key, addr: SocketAddr) -> token::ConnectToken {
             let mut nonce = token::ConnectTokenNonce::default();
             crypto::random_bytes(&mut nonce);
 

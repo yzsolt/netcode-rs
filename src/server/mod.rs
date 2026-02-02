@@ -350,7 +350,7 @@ where
             .iter_mut()
             .map(|c| c.as_mut())
             .find(|c| {
-                if let Some(ref c) = c {
+                if let Some(c) = c {
                     c.client_id == id
                 } else {
                     false
@@ -367,7 +367,7 @@ where
             .iter_mut()
             .map(|c| c.as_mut())
             .find(|c| {
-                if let Some(ref c) = c {
+                if let Some(c) = c {
                     c.channel.get_addr() == addr
                 } else {
                     false
@@ -402,14 +402,14 @@ where
         request: &packet::ConnectionRequestPacket,
         clients: &mut ClientVec,
     ) -> Result<Option<ServerEvent>, UpdateError> {
-        if let Some(ref private_data) = self.validate_client_token(request) {
+        if let Some(private_data) = self.validate_client_token(request) {
             //See if we already have this connection
             let existing_client_result = if let Some(client) =
                 Server::<I, S>::find_client_by_id(clients, private_data.client_id)
             {
                 trace!("Client already exists, skipping socket creation");
                 Some(
-                    self.send_client_challenge(client, private_data)
+                    self.send_client_challenge(client, &private_data)
                         .map(|_| None),
                 )
             } else {
@@ -433,7 +433,7 @@ where
                         ),
                     };
 
-                    self.send_client_challenge(&mut conn, private_data)?;
+                    self.send_client_challenge(&mut conn, &private_data)?;
 
                     trace!("Accepted connection {:?}", addr);
                     clients[idx] = Some(conn);
@@ -487,11 +487,7 @@ where
             .send(self.time, packet, payload, &mut self.listen_socket)
     }
 
-    fn send_denied_packet(
-        &mut self,
-        addr: &SocketAddr,
-        key: &Key,
-    ) -> Result<(), SendError> {
+    fn send_denied_packet(&mut self, addr: &SocketAddr, key: &Key) -> Result<(), SendError> {
         //id + sequence
         let mut packet = [0; 1 + 8];
         packet::encode(
@@ -515,8 +511,7 @@ where
         if req.version != *NETCODE_VERSION_STRING {
             trace!(
                 "Version mismatch expected {:?} but got {:?}",
-                NETCODE_VERSION_STRING,
-                req.version
+                NETCODE_VERSION_STRING, req.version
             );
 
             return None;
@@ -643,7 +638,7 @@ where
         let decoded = match client.channel.recv(self.time, packet, out_packet) {
             Ok(packet) => packet,
             Err(RecvError::DuplicateSequence) => {
-                return Ok(Some(ServerEvent::ReplayRejected(client.client_id)))
+                return Ok(Some(ServerEvent::ReplayRejected(client.client_id)));
             }
             Err(e) => {
                 info!("Failed to decode packet: {:?}", e);
@@ -660,8 +655,7 @@ where
                 packet::Packet::Payload(len) => {
                     trace!(
                         "Received payload packet from {} with size {}",
-                        client.client_id,
-                        len
+                        client.client_id, len
                     );
                     Some(ServerEvent::Packet(client.client_id, len))
                 }
@@ -693,9 +687,9 @@ where
                     state = Some(ConnectionState::Idle);
                     Some(ServerEvent::ClientConnect(token.client_id))
                 }
-                packet::Packet::ConnectionRequest(ref req) => {
-                    if let Some(ref private_data) = self.validate_client_token(req) {
-                        self.send_client_challenge(client, private_data)
+                packet::Packet::ConnectionRequest(req) => {
+                    if let Some(private_data) = self.validate_client_token(&req) {
+                        self.send_client_challenge(client, &private_data)
                             .map(|_| None)?
                     } else {
                         None
@@ -773,10 +767,7 @@ mod test {
             SocketAddr::from_str(addr).unwrap()
         }
 
-        pub fn generate_connect_token(
-            private_key: &Key,
-            addr: &str,
-        ) -> token::ConnectToken {
+        pub fn generate_connect_token(private_key: &Key, addr: &str) -> token::ConnectToken {
             let mut nonce = token::ConnectTokenNonce::default();
             crypto::random_bytes(&mut nonce);
 
