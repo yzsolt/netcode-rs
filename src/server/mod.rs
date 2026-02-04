@@ -9,6 +9,7 @@ use std::time::{Duration, Instant};
 use crate::common::*;
 use crate::crypto;
 use crate::packet;
+use crate::time::UtcTimestamp;
 use crate::token;
 
 mod connection;
@@ -171,11 +172,11 @@ where
         }
     }
 
-    /// Generates a connection token with `client_id` that expires after `expire_secs` with an optional user_data.
+    /// Generates a connection token with `client_id` that expires after `expiration` with an optional `user_data``.
     pub fn generate_token(
         &mut self,
-        expire_secs: usize,
-        timeout_sec: u32,
+        expiration: Duration,
+        timeout: Duration,
         client_id: u64,
         user_data: Option<&token::UserData>,
     ) -> Result<token::ConnectToken, token::GenerateError> {
@@ -191,8 +192,8 @@ where
         token::ConnectToken::generate(
             [addr].iter().cloned(),
             &self.internal.connect_key,
-            expire_secs,
-            timeout_sec,
+            expiration,
+            timeout,
             &nonce,
             self.internal.protocol_id,
             client_id,
@@ -517,16 +518,16 @@ where
             return None;
         }
 
-        let now = token::get_time_now();
-        if now > req.token_expire {
-            trace!("Token expired: {} > {}", now, req.token_expire);
+        let now = UtcTimestamp::now();
+        if now > req.token_expires {
+            trace!("Token expired: {:?} > {:?}", now, req.token_expires);
             return None;
         }
 
         if let Ok(v) = token::PrivateData::decode(
             &req.private_data,
             self.protocol_id,
-            req.token_expire,
+            &req.token_expires,
             &req.nonce,
             &self.connect_key,
         ) {
@@ -725,7 +726,7 @@ mod test {
     const PROTOCOL_ID: u64 = 0xFFCC;
     const MAX_CLIENTS: u32 = 256;
     const CLIENT_ID: u64 = 0xFFEEDD;
-    const TIMEOUT_SEC: u32 = 15;
+    const TIMEOUT: Duration = Duration::from_secs(15);
 
     struct TestHarness<I, S>
     where
@@ -774,8 +775,8 @@ mod test {
             token::ConnectToken::generate(
                 [Self::str_to_addr(addr)].iter().cloned(),
                 private_key,
-                30, //Expire
-                TIMEOUT_SEC,
+                Duration::from_secs(30), //Expire
+                TIMEOUT,
                 &nonce,
                 PROTOCOL_ID,
                 CLIENT_ID, //Client Id
@@ -811,7 +812,7 @@ mod test {
             let packet = Packet::ConnectionRequest(ConnectionRequestPacket {
                 version: *NETCODE_VERSION_STRING,
                 protocol_id: PROTOCOL_ID,
-                token_expire: self.connect_token.expire_utc,
+                token_expires: self.connect_token.expires,
                 nonce: self.connect_token.nonce,
                 private_data,
             });

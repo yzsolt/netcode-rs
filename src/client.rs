@@ -450,7 +450,7 @@ mod test {
     const PROTOCOL_ID: u64 = 0xFFCC;
     const MAX_CLIENTS: u32 = 256;
     const CLIENT_ID: u64 = 0xFFEEDD;
-    const TIMEOUT_SEC: u32 = 15;
+    const TIMEOUT: Duration = Duration::from_secs(15);
 
     struct TestHarness<I, S>
     where
@@ -500,8 +500,8 @@ mod test {
             token::ConnectToken::generate(
                 [addr].iter().cloned(),
                 private_key,
-                30, //Expire
-                TIMEOUT_SEC,
+                Duration::from_secs(30), //Expire
+                TIMEOUT,
                 &nonce,
                 PROTOCOL_ID,
                 CLIENT_ID, //Client Id

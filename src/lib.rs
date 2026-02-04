@@ -94,10 +94,11 @@
 //! ```
 //! use netcode_rs::{self, ConnectToken, ConnectTokenNonce, generate_key};
 //! use std::io;
+//! use std::time::Duration;
 //!
-//! const EXPIRE_SECONDS: usize = 30;
+//! const EXPIRES: Duration = Duration::from_secs(30);
 //! const PROTOCOL_ID: u64 = 0xFFEE;
-//! const TIMEOUT_SECONDS: u32 = 15;
+//! const TIMEOUT: Duration = Duration::from_secs(15);
 //!
 //! # fn get_client_id() -> u64 { 0 }
 //! # fn get_connect_token_nonce() -> ConnectTokenNonce { ConnectTokenNonce::default() }
@@ -110,8 +111,8 @@
 //!
 //! let token = ConnectToken::generate_with_string(["127.0.0.1:5000"].iter().cloned(),
 //!                                                &private_key,
-//!                                                EXPIRE_SECONDS,
-//!                                                TIMEOUT_SECONDS,
+//!                                                EXPIRES,
+//!                                                TIMEOUT,
 //!                                                &nonce,
 //!                                                PROTOCOL_ID,
 //!                                                client_id,
@@ -119,9 +120,12 @@
 //! let mut token_data = vec!();
 //! token.write(&mut token_data).unwrap();
 //! ```
+//!
+//! Alteratively if you already have a server you can generate a token like below:
 //! ```rust
 //! # use netcode_rs::{UdpServer, generate_key};
-//! //Alteratively if you already have a server you can generate a token like below:
+//! use std::time::Duration;
+//!
 //! const PROTOCOL_ID: u64 = 0xFFEE;
 //! const MAX_CLIENTS: u32 = 32;
 //! let mut server = UdpServer::new("127.0.0.1:0",
@@ -129,12 +133,12 @@
 //!                                 PROTOCOL_ID,
 //!                                 &generate_key()).unwrap();
 //!
-//! const EXPIRE_SECONDS: usize = 30;
-//! const TIMEOUT_SECONDS: u32 = 15;
+//! const EXPIRE: Duration = Duration::from_secs(30);
+//! const TIMEOUT: Duration = Duration::from_secs(15);
 //! # fn get_client_id() -> u64 { 0 }
 //! let client_id = get_client_id(); //Unique u64 client id.
 //!
-//! let token = server.generate_token(EXPIRE_SECONDS, TIMEOUT_SECONDS, client_id, None).unwrap();
+//! let token = server.generate_token(EXPIRE, TIMEOUT, client_id, None).unwrap();
 //! ```
 
 mod channel;
@@ -146,6 +150,7 @@ mod packet;
 mod replay;
 mod server;
 mod socket;
+mod time;
 mod token;
 
 pub use crate::client::{Client, ClientEvent, State as ClientState, UdpClient};

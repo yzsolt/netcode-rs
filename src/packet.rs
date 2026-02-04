@@ -8,6 +8,7 @@ use chacha20poly1305::aead::Nonce;
 
 use crate::common::*;
 use crate::crypto;
+use crate::time::UtcTimestamp;
 use crate::token;
 
 const PACKET_CONNECTION: u8 = 0;
@@ -256,7 +257,7 @@ pub fn encode(
 pub struct ConnectionRequestPacket {
     pub version: [u8; NETCODE_VERSION_LEN],
     pub protocol_id: u64,
-    pub token_expire: u64,
+    pub token_expires: UtcTimestamp,
     pub nonce: token::ConnectTokenNonce,
     pub private_data: [u8; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES],
 }
@@ -266,7 +267,7 @@ impl ConnectionRequestPacket {
         Self {
             version: *NETCODE_VERSION_STRING,
             protocol_id: token.protocol,
-            token_expire: token.expire_utc,
+            token_expires: token.expires,
             nonce: token.nonce,
             private_data: token.private_data,
         }
@@ -280,7 +281,7 @@ impl ConnectionRequestPacket {
         source.read_exact(&mut version[..])?;
 
         let protocol_id = source.read_u64::<LittleEndian>()?;
-        let token_expire = source.read_u64::<LittleEndian>()?;
+        let token_expire = source.read_u64::<LittleEndian>()?.into();
 
         let mut nonce = token::ConnectTokenNonce::default();
         source.read_exact(&mut nonce)?;
@@ -291,7 +292,7 @@ impl ConnectionRequestPacket {
         Ok(Self {
             version,
             protocol_id,
-            token_expire,
+            token_expires: token_expire,
             nonce,
             private_data,
         })
@@ -303,7 +304,7 @@ impl ConnectionRequestPacket {
     {
         out.write_all(&self.version)?;
         out.write_u64::<LittleEndian>(self.protocol_id)?;
-        out.write_u64::<LittleEndian>(self.token_expire)?;
+        out.write_u64::<LittleEndian>(self.token_expires.into())?;
         out.write_all(&self.nonce)?;
         out.write_all(&self.private_data)?;
 
@@ -528,6 +529,8 @@ impl KeepAlivePacket {
 
 #[cfg(test)]
 mod test {
+    use std::time::Duration;
+
     use super::*;
 
     fn test_seq_value(v: u64) {
@@ -615,15 +618,15 @@ mod test {
 
         let pkey = crypto::generate_key();
 
-        const TIMEOUT_SEC: u32 = 15;
+        const TIMEOUT: Duration = Duration::from_secs(15);
 
         let token = token::ConnectToken::generate(
             [SocketAddr::from_str("127.0.0.1:8080").unwrap()]
                 .iter()
                 .cloned(),
             &pkey,
-            30, //Expire
-            TIMEOUT_SEC,
+            Duration::from_secs(30), //Expire
+            TIMEOUT,
             &nonce,
             protocol_id,
             0xFFEE, //Client Id
@@ -635,7 +638,7 @@ mod test {
             protocol_id,
             nonce,
             version: *NETCODE_VERSION_STRING,
-            token_expire: token.expire_utc,
+            token_expires: token.expires,
             private_data: token.private_data,
         });
 
@@ -643,7 +646,7 @@ mod test {
             Packet::ConnectionRequest(p) => {
                 assert_eq!(p.version, *NETCODE_VERSION_STRING);
                 assert_eq!(p.protocol_id, protocol_id);
-                assert_eq!(p.token_expire, token.expire_utc);
+                assert_eq!(p.token_expires, token.expires);
                 assert_eq!(p.nonce, nonce);
                 assert_eq!(p.private_data, token.private_data);
             }

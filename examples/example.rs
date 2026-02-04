@@ -18,8 +18,8 @@ use std::time::{Duration, Instant};
 
 const MAX_CLIENTS: u32 = 256; //Total number of clients we support
 const PROTOCOL_ID: u64 = 0x00FF_DDEE; //Unique protocol id for our application.
-const TOKEN_LIFETIME: usize = 15; //Our token lives 15 seconds.
-const CONNECTION_TIMEOUT: u32 = 15; // Time in seconds connection should wait before disconnecting.
+const TOKEN_LIFETIME: Duration = Duration::from_secs(15); //Our token lives 15 seconds.
+const CONNECTION_TIMEOUT: Duration = Duration::from_secs(15); // Time in seconds connection should wait before disconnecting.
 
 const CLIENT_ID: u64 = 0x00DD_EEFF; //Single unique client id, you'll want to tie this into
 // your user store in production.

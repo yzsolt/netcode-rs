@@ -6,10 +6,11 @@ use chacha20poly1305::aead::Nonce;
 use std::io;
 use std::io::Write;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::time;
+use std::time::Duration;
 
 use crate::common::*;
 use crate::crypto;
+use crate::time::UtcTimestamp;
 
 #[derive(Debug)]
 pub enum GenerateError {
@@ -76,10 +77,10 @@ pub type UserData = [u8; USER_DATA_LEN];
 pub struct ConnectToken {
     /// Protocol ID for messages relayed by netcode.
     pub protocol: u64,
-    /// Token creation time in ms from unix epoch.
-    pub create_utc: u64,
-    /// Token expire time in ms from unix epoch.
-    pub expire_utc: u64,
+    /// Token creation time
+    pub created: UtcTimestamp,
+    /// Token expire time
+    pub expires: UtcTimestamp,
     /// Nonce for decoding private data.
     pub nonce: ConnectTokenNonce,
     /// Private data encryped with server's private key(separate from client <-> server keys).
@@ -90,22 +91,22 @@ pub struct ConnectToken {
     pub client_to_server_key: Key,
     /// Private key for server -> client communcation.
     pub server_to_client_key: Key,
-    /// Time in seconds connection should wait before disconnecting
-    pub timeout_sec: u32,
+    /// Time connection should wait before disconnecting
+    pub timeout: Duration,
 }
 
 impl Clone for ConnectToken {
     fn clone(&self) -> Self {
         Self {
             protocol: self.protocol,
-            create_utc: self.create_utc,
-            expire_utc: self.expire_utc,
+            created: self.created,
+            expires: self.expires,
             nonce: self.nonce,
             private_data: self.private_data,
             hosts: self.hosts.clone(),
             client_to_server_key: self.client_to_server_key,
             server_to_client_key: self.server_to_client_key,
-            timeout_sec: self.timeout_sec,
+            timeout: self.timeout,
         }
     }
 }
@@ -114,8 +115,8 @@ impl Clone for ConnectToken {
 pub struct PrivateData {
     /// Unique client id, determined by the server.
     pub client_id: u64,
-    /// Time in seconds connection should wait before disconnecting.
-    pub timeout_sec: u32,
+    /// Time connection should wait before disconnecting.
+    pub timeout: Duration,
     /// Secondary host list to authoritatively determine which hosts clients can connect to.
     pub hosts: HostList,
     /// Private key for client -> server communcation.
@@ -141,7 +142,7 @@ fn generate_user_data() -> UserData {
 
 fn generate_additional_data(
     protocol: u64,
-    expire_utc: u64,
+    expires: &UtcTimestamp,
 ) -> Result<[u8; NETCODE_ADDITIONAL_DATA_SIZE], io::Error> {
     let mut scratch = [0; NETCODE_ADDITIONAL_DATA_SIZE];
 
@@ -150,17 +151,10 @@ fn generate_additional_data(
 
         out.write_all(NETCODE_VERSION_STRING)?;
         out.write_u64::<LittleEndian>(protocol)?;
-        out.write_u64::<LittleEndian>(expire_utc)?;
+        out.write_u64::<LittleEndian>((*expires).into())?;
     }
 
     Ok(scratch)
-}
-
-pub fn get_time_now() -> u64 {
-    time::SystemTime::now()
-        .duration_since(time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs()
 }
 
 impl ConnectToken {
@@ -185,8 +179,8 @@ impl ConnectToken {
     pub fn generate_with_string<H, I>(
         hosts: H,
         private_key: &Key,
-        expire_sec: usize,
-        timeout_sec: u32,
+        expiration: Duration,
+        timeout: Duration,
         nonce: &ConnectTokenNonce,
         protocol: u64,
         client_id: u64,
@@ -210,8 +204,8 @@ impl ConnectToken {
         Self::generate_internal(
             host_list,
             private_key,
-            expire_sec,
-            timeout_sec,
+            expiration,
+            timeout,
             nonce,
             protocol,
             client_id,
@@ -225,9 +219,9 @@ impl ConnectToken {
     ///
     /// `private_key`: Server private key that will be used to authenticate requests.
     ///
-    /// `expire_sec`: How long this token is valid for in seconds.
+    /// `expiration`: How long this token is valid for.
     ///
-    /// `timeout_sec`: Time in seconds connection should wait before disconnecting.
+    /// `timeout`: Time connection should wait before disconnecting.
     ///
     /// `nonce`: Nonce to use. Should be randomly generated for every token.
     ///
@@ -240,8 +234,8 @@ impl ConnectToken {
     pub fn generate<H>(
         hosts: H,
         private_key: &Key,
-        expire_sec: usize,
-        timeout_sec: u32,
+        expiration: Duration,
+        timeout: Duration,
         nonce: &ConnectTokenNonce,
         protocol: u64,
         client_id: u64,
@@ -257,8 +251,8 @@ impl ConnectToken {
         Self::generate_internal(
             hosts,
             private_key,
-            expire_sec,
-            timeout_sec,
+            expiration,
+            timeout,
             nonce,
             protocol,
             client_id,
@@ -270,8 +264,8 @@ impl ConnectToken {
     fn generate_internal<H>(
         hosts: H,
         private_key: &Key,
-        expire_sec: usize,
-        timeout_sec: u32,
+        expiration: Duration,
+        timeout: Duration,
         nonce: &ConnectTokenNonce,
         protocol: u64,
         client_id: u64,
@@ -280,24 +274,24 @@ impl ConnectToken {
     where
         H: Iterator<Item = SocketAddr>,
     {
-        let now = get_time_now();
-        let expire = now + expire_sec as u64;
+        let now = UtcTimestamp::now();
+        let expires = now + expiration;
 
-        let decoded_data = PrivateData::new(client_id, timeout_sec, hosts, user_data);
+        let decoded_data = PrivateData::new(client_id, timeout, hosts, user_data);
 
         let mut private_data = [0; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES];
-        decoded_data.encode(&mut private_data, protocol, expire, nonce, private_key)?;
+        decoded_data.encode(&mut private_data, protocol, &expires, nonce, private_key)?;
 
         Ok(Self {
             protocol,
             nonce: *nonce,
             private_data,
             hosts: decoded_data.hosts.clone(),
-            create_utc: now,
-            expire_utc: expire,
+            created: now,
+            expires,
             client_to_server_key: decoded_data.client_to_server_key,
             server_to_client_key: decoded_data.server_to_client_key,
-            timeout_sec,
+            timeout,
         })
     }
 
@@ -307,7 +301,7 @@ impl ConnectToken {
         PrivateData::decode(
             &self.private_data,
             self.protocol,
-            self.expire_utc,
+            &self.expires,
             &self.nonce,
             private_key,
         )
@@ -320,11 +314,11 @@ impl ConnectToken {
     {
         out.write_all(NETCODE_VERSION_STRING)?;
         out.write_u64::<LittleEndian>(self.protocol)?;
-        out.write_u64::<LittleEndian>(self.create_utc)?;
-        out.write_u64::<LittleEndian>(self.expire_utc)?;
+        out.write_u64::<LittleEndian>(self.created.into())?;
+        out.write_u64::<LittleEndian>(self.expires.into())?;
         out.write_all(&self.nonce)?;
         out.write_all(&self.private_data)?;
-        out.write_u32::<LittleEndian>(self.timeout_sec)?;
+        out.write_u32::<LittleEndian>(self.timeout.as_secs() as u32)?;
         self.hosts.write(out)?;
         out.write_all(&self.client_to_server_key)?;
         out.write_all(&self.server_to_client_key)?;
@@ -367,20 +361,20 @@ impl ConnectToken {
 
         Ok(Self {
             hosts,
-            create_utc,
-            expire_utc,
+            created: UtcTimestamp::from(create_utc),
+            expires: UtcTimestamp::from(expire_utc),
             protocol,
             nonce,
             private_data,
             client_to_server_key,
             server_to_client_key,
-            timeout_sec,
+            timeout: Duration::from_secs(timeout_sec as u64),
         })
     }
 }
 
 impl PrivateData {
-    pub fn new<H>(client_id: u64, timeout_sec: u32, hosts: H, user_data: Option<&UserData>) -> Self
+    pub fn new<H>(client_id: u64, timeout: Duration, hosts: H, user_data: Option<&UserData>) -> Self
     where
         H: Iterator<Item = SocketAddr>,
     {
@@ -394,7 +388,7 @@ impl PrivateData {
 
         Self {
             client_id,
-            timeout_sec,
+            timeout,
             client_to_server_key,
             server_to_client_key,
             hosts: HostList::new(hosts),
@@ -405,11 +399,11 @@ impl PrivateData {
     pub fn decode(
         encoded: &[u8; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES],
         protocol_id: u64,
-        expire_utc: u64,
+        expires: &UtcTimestamp,
         nonce: &ConnectTokenNonce,
         private_key: &Key,
     ) -> Result<Self, DecodeError> {
-        let additional_data = generate_additional_data(protocol_id, expire_utc)?;
+        let additional_data = generate_additional_data(protocol_id, expires)?;
         let mut decoded =
             [0; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES - crypto::NETCODE_ENCRYPT_EXTA_BYTES];
 
@@ -428,11 +422,11 @@ impl PrivateData {
         &self,
         out: &mut [u8; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES],
         protocol_id: u64,
-        expire_utc: u64,
+        expiration: &UtcTimestamp,
         nonce: &ConnectTokenNonce,
         private_key: &Key,
     ) -> Result<(), GenerateError> {
-        let additional_data = generate_additional_data(protocol_id, expire_utc)?;
+        let additional_data = generate_additional_data(protocol_id, expiration)?;
         let mut scratch =
             [0; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES - crypto::NETCODE_ENCRYPT_EXTA_BYTES];
 
@@ -454,7 +448,7 @@ impl PrivateData {
         W: io::Write,
     {
         out.write_u64::<LittleEndian>(self.client_id)?;
-        out.write_u32::<LittleEndian>(self.timeout_sec)?;
+        out.write_u32::<LittleEndian>(self.timeout.as_secs() as u32)?;
 
         self.hosts.write(out)?;
         out.write_all(&self.client_to_server_key)?;
@@ -486,7 +480,7 @@ impl PrivateData {
         Ok(Self {
             hosts,
             client_id,
-            timeout_sec,
+            timeout: Duration::from_secs(timeout_sec as u64),
             client_to_server_key,
             server_to_client_key,
             user_data,
@@ -636,8 +630,8 @@ mod test {
         let mut user_data = [0; USER_DATA_LEN];
         crypto::random_bytes(&mut user_data);
 
-        let expire = 30;
-        let timeout = 15;
+        let expire = Duration::from_secs(30);
+        let timeout = Duration::from_secs(15);
 
         let mut nonce = ConnectTokenNonce::default();
         crypto::random_bytes(&mut nonce);
@@ -670,11 +664,11 @@ mod test {
                 i
             );
         }
-        assert_eq!(read.expire_utc, token.expire_utc);
-        assert_eq!(read.create_utc, token.create_utc);
+        assert_eq!(read.expires, token.expires);
+        assert_eq!(read.created, token.created);
         assert_eq!(read.nonce, token.nonce);
         assert_eq!(read.protocol, token.protocol);
-        assert_eq!(read.timeout_sec, token.timeout_sec);
+        assert_eq!(read.timeout, token.timeout);
     }
 
     #[test]
@@ -685,8 +679,8 @@ mod test {
         let mut user_data = [0; USER_DATA_LEN];
         crypto::random_bytes(&mut user_data);
 
-        let expire = 30;
-        let timeout = 15;
+        let expire = Duration::from_secs(30);
+        let timeout = Duration::from_secs(15);
 
         let mut nonce = ConnectTokenNonce::default();
         crypto::random_bytes(&mut nonce);
