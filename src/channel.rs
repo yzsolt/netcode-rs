@@ -85,7 +85,7 @@ impl Channel {
         }
     }
 
-    pub fn send<I, S>(
+    pub fn send<I>(
         &mut self,
         current_time: Instant,
         packet: &Packet,
@@ -93,7 +93,7 @@ impl Channel {
         socket: &mut I,
     ) -> Result<usize, SendError>
     where
-        I: SocketProvider<I, S>,
+        I: SocketProvider<I>,
     {
         let mut scratch = [0; MAX_PACKET_SIZE];
         let len = packet::encode(
@@ -137,13 +137,13 @@ impl Channel {
         Ok(packet)
     }
 
-    pub fn send_keep_alive<I, S>(
+    pub fn send_keep_alive<I>(
         &mut self,
         current_time: Instant,
         socket: &mut I,
     ) -> Result<usize, SendError>
     where
-        I: SocketProvider<I, S>,
+        I: SocketProvider<I>,
     {
         let keep_alive = KeepAlivePacket {
             client_idx: self.client_idx,
@@ -153,14 +153,14 @@ impl Channel {
         self.send(current_time, &Packet::KeepAlive(keep_alive), None, socket)
     }
 
-    pub fn update<I, S>(
+    pub fn update<I>(
         &mut self,
         current_time: Instant,
         socket: &mut I,
         send_keep_alive: bool,
     ) -> Result<UpdateResult, SendError>
     where
-        I: SocketProvider<I, S>,
+        I: SocketProvider<I>,
     {
         if self.keep_alive.should_send_keepalive(current_time) {
             if send_keep_alive {

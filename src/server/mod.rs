@@ -40,7 +40,7 @@ pub enum ServerEvent {
 }
 
 /// UDP based netcode server.
-pub type UdpServer = Server<UdpSocket, ()>;
+pub type UdpServer = Server<UdpSocket>;
 
 type ClientVec = Vec<Option<Connection>>;
 
@@ -79,17 +79,14 @@ type ClientVec = Vec<Option<Connection>>;
 ///     }
 /// }
 /// ```
-pub struct Server<I, S> {
+pub struct Server<I> {
     //@todo: We could probably use a free list or something smarter here if
     //we find that performance is an issue.
     clients: ClientVec,
-    internal: ServerInternal<I, S>,
+    internal: ServerInternal<I>,
 }
 
-struct ServerInternal<I, S> {
-    #[allow(dead_code)]
-    socket_state: S,
-
+struct ServerInternal<I> {
     listen_socket: I,
     listen_addr: SocketAddr,
 
@@ -110,9 +107,9 @@ enum TickResult {
     SendKeepAlive,
 }
 
-impl<I, S> Server<I, S>
+impl<I> Server<I>
 where
-    I: SocketProvider<I, S>,
+    I: SocketProvider<I>,
 {
     /// Constructs a new Server bound to `local_addr` with `max_clients` and supplied `private_key` for authentication.
     pub fn new<A>(
@@ -125,8 +122,7 @@ where
         A: ToSocketAddrs,
     {
         let bind_addr = local_addr.to_socket_addrs().unwrap().next().unwrap();
-        let mut socket_state = I::new_state();
-        let listen_socket = I::bind(&bind_addr, &mut socket_state)?;
+        let listen_socket = I::bind(&bind_addr)?;
 
         let clients = vec![None; max_clients as usize];
 
@@ -138,7 +134,6 @@ where
         Ok(Self {
             clients,
             internal: ServerInternal {
-                socket_state,
                 protocol_id,
                 listen_socket,
                 listen_addr: bind_addr,
@@ -353,19 +348,14 @@ where
     }
 
     #[cfg(test)]
-    pub fn get_socket_state(&mut self) -> &mut S {
-        &mut self.internal.socket_state
-    }
-
-    #[cfg(test)]
     pub fn set_read_timeout(&mut self, duration: Option<Duration>) -> Result<(), io::Error> {
         self.internal.listen_socket.set_recv_timeout(duration)
     }
 }
 
-impl<I, S> ServerInternal<I, S>
+impl<I> ServerInternal<I>
 where
-    I: SocketProvider<I, S>,
+    I: SocketProvider<I>,
 {
     fn update(&mut self, elapsed: Duration) {
         self.time += elapsed;
@@ -381,7 +371,7 @@ where
         if let Some(private_data) = self.validate_client_token(request) {
             //See if we already have this connection
             let existing_client_result = if let Some(client) =
-                Server::<I, S>::find_client_by_id(clients, private_data.client_id)
+                Server::<I>::find_client_by_id(clients, private_data.client_id)
             {
                 trace!("Client already exists, skipping socket creation");
                 Some(
@@ -703,31 +693,31 @@ mod test {
     const CLIENT_ID: u64 = 0xFFEEDD;
     const TIMEOUT: Duration = Duration::from_secs(15);
 
-    struct TestHarness<I, S>
+    struct TestHarness<I>
     where
-        I: SocketProvider<I, S>,
+        I: SocketProvider<I>,
     {
         next_sequence: u64,
-        server: Server<I, S>,
+        server: Server<I>,
         private_key: Key,
         socket: I,
         connect_token: token::ConnectToken,
     }
 
-    impl<S, I> TestHarness<I, S>
+    impl<I> TestHarness<I>
     where
-        I: SocketProvider<I, S>,
+        I: SocketProvider<I>,
     {
-        pub fn new(port: Option<u16>) -> TestHarness<I, S> {
+        pub fn new(port: Option<u16>) -> TestHarness<I> {
             let private_key = crypto::generate_key();
 
             let addr = format!("127.0.0.1:{}", port.unwrap_or(0));
             let mut server =
-                Server::<I, S>::new(&addr, MAX_CLIENTS, PROTOCOL_ID, &private_key).unwrap();
+                Server::<I>::new(&addr, MAX_CLIENTS, PROTOCOL_ID, &private_key).unwrap();
             server
                 .set_read_timeout(Some(Duration::from_secs(15)))
                 .unwrap();
-            let socket = I::bind(&Self::str_to_addr(&addr), server.get_socket_state()).unwrap();
+            let socket = I::bind(&Self::str_to_addr(&addr)).unwrap();
 
             TestHarness {
                 server,
@@ -763,11 +753,6 @@ mod test {
         pub fn replace_connect_token(&mut self, addr: &str, key: Option<&Key>) {
             self.connect_token =
                 Self::generate_connect_token(key.unwrap_or(&self.private_key), addr);
-        }
-
-        #[allow(dead_code)]
-        pub fn get_socket_state(&mut self) -> &mut S {
-            self.server.get_socket_state()
         }
 
         #[allow(dead_code)]
@@ -952,7 +937,7 @@ mod test {
 
     #[test]
     fn test_connect_api() {
-        let mut harness = TestHarness::<UdpSocket, ()>::new(None);
+        let mut harness = TestHarness::<UdpSocket>::new(None);
         harness.send_connect_packet();
         harness.validate_challenge();
         let challenge = harness.read_challenge();
@@ -962,7 +947,7 @@ mod test {
 
     #[test]
     fn test_connect_bad_host() {
-        let mut harness = TestHarness::<UdpSocket, ()>::new(None);
+        let mut harness = TestHarness::<UdpSocket>::new(None);
         let port = harness.server.get_local_addr().unwrap().port();
         harness.replace_connect_token(format!("0.0.0.0:{}", port).as_str(), None);
         harness.send_connect_packet();
@@ -977,7 +962,7 @@ mod test {
 
     #[test]
     fn test_connect_bad_key() {
-        let mut harness = TestHarness::<UdpSocket, ()>::new(None);
+        let mut harness = TestHarness::<UdpSocket>::new(None);
         let port = harness.server.get_local_addr().unwrap().port();
         harness.replace_connect_token(
             format!("127.0.0.1:{}", port).as_str(),
@@ -995,7 +980,7 @@ mod test {
 
     #[test]
     fn test_replay_protection() {
-        let mut harness = TestHarness::<UdpSocket, ()>::new(None);
+        let mut harness = TestHarness::<UdpSocket>::new(None);
         harness.send_connect_packet();
         harness.validate_challenge();
         let challenge = harness.read_challenge();
@@ -1028,7 +1013,7 @@ mod test {
 
     #[test]
     fn test_payload() {
-        let mut harness = TestHarness::<UdpSocket, ()>::new(None);
+        let mut harness = TestHarness::<UdpSocket>::new(None);
         harness.send_connect_packet();
         harness.validate_challenge();
         let challenge = harness.read_challenge();

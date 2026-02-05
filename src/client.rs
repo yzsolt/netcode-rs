@@ -67,33 +67,31 @@ pub enum ClientEvent {
 }
 
 /// Netcode client object.
-pub struct Client<I, S>
+pub struct Client<I>
 where
-    I: SocketProvider<I, S>,
+    I: SocketProvider<I>,
 {
     state: InternalState,
-    data: ClientData<I, S>,
+    data: ClientData<I>,
 }
 
-struct ClientData<I, S>
+struct ClientData<I>
 where
-    I: SocketProvider<I, S>,
+    I: SocketProvider<I>,
 {
     time: Instant,
     ext_state: State,
     channel: Channel,
     socket: I,
-    #[allow(dead_code)]
-    socket_state: S,
     token: ConnectToken,
 }
 
 /// UDP based netcode client.
-pub type UdpClient = Client<UdpSocket, ()>;
+pub type UdpClient = Client<UdpSocket>;
 
-impl<I, S> ClientData<I, S>
+impl<I> ClientData<I>
 where
-    I: SocketProvider<I, S>,
+    I: SocketProvider<I>,
 {
     fn disconnect(
         &mut self,
@@ -240,20 +238,16 @@ where
     }
 }
 
-impl<I, S> Client<I, S>
+impl<I> Client<I>
 where
-    I: SocketProvider<I, S>,
+    I: SocketProvider<I>,
 {
     /// Constructs a new client from an existing `ConnectToken`.
     pub fn new(token: &ConnectToken) -> Result<Self, SendError> {
-        Self::new_with_state(token, I::new_state())
-    }
-
-    fn new_with_state(token: &ConnectToken, mut socket_state: S) -> Result<Self, SendError> {
         use std::str::FromStr;
 
         let local_addr = SocketAddr::from_str("127.0.0.1:0").unwrap();
-        let socket = I::bind(&local_addr, &mut socket_state)?;
+        let socket = I::bind(&local_addr)?;
 
         trace!(
             "Client created on socket {:?}",
@@ -275,7 +269,6 @@ where
         let mut data = ClientData {
             channel,
             socket,
-            socket_state,
             time: now,
             ext_state: State::SendingConnectionRequest,
             token: token.clone(),
@@ -432,11 +425,6 @@ where
     fn set_read_timeout(&mut self, duration: Option<Duration>) -> Result<(), io::Error> {
         self.data.socket.set_recv_timeout(duration)
     }
-
-    #[cfg(test)]
-    pub fn get_socket_state(&mut self) -> &mut S {
-        &mut self.data.socket_state
-    }
 }
 
 #[cfg(test)]
@@ -452,37 +440,34 @@ mod test {
     const CLIENT_ID: u64 = 0xFFEEDD;
     const TIMEOUT: Duration = Duration::from_secs(15);
 
-    struct TestHarness<I, S>
+    struct TestHarness<I>
     where
-        I: SocketProvider<I, S>,
+        I: SocketProvider<I>,
     {
-        client: Client<I, S>,
-        server: Option<Server<I, S>>,
+        client: Client<I>,
+        server: Option<Server<I>>,
     }
 
-    impl<S, I> TestHarness<I, S>
+    impl<I> TestHarness<I>
     where
-        I: SocketProvider<I, S>,
-        S: Clone,
+        I: SocketProvider<I>,
     {
-        pub fn new(in_token: Option<ConnectToken>) -> TestHarness<I, S> {
+        pub fn new(in_token: Option<ConnectToken>) -> TestHarness<I> {
             let private_key = crypto::generate_key();
 
             let addr = "127.0.0.1:0".to_string();
             let (server, mut client) = if let Some(token) = in_token {
-                let client = Client::<I, S>::new_with_state(&token, I::new_state()).unwrap();
+                let client = Client::<I>::new(&token).unwrap();
                 (None, client)
             } else {
                 let mut server =
-                    Server::<I, S>::new(&addr, MAX_CLIENTS, PROTOCOL_ID, &private_key).unwrap();
+                    Server::<I>::new(&addr, MAX_CLIENTS, PROTOCOL_ID, &private_key).unwrap();
                 server
                     .set_read_timeout(Some(Duration::from_secs(1)))
                     .unwrap();
                 let token =
                     Self::generate_connect_token(&private_key, server.get_local_addr().unwrap());
-                let client =
-                    Client::<I, S>::new_with_state(&token, server.get_socket_state().clone())
-                        .unwrap();
+                let client = Client::<I>::new(&token).unwrap();
                 (Some(server), client)
             };
 
@@ -529,7 +514,7 @@ mod test {
 
     #[test]
     fn test_client_connect() {
-        let mut harness = TestHarness::<UdpSocket, ()>::new(None);
+        let mut harness = TestHarness::<UdpSocket>::new(None);
 
         match harness.client.get_state() {
             State::SendingConnectionRequest => (),
@@ -551,7 +536,7 @@ mod test {
 
     #[test]
     fn test_payload() {
-        let mut harness = TestHarness::<UdpSocket, ()>::new(None);
+        let mut harness = TestHarness::<UdpSocket>::new(None);
 
         //Pending response
         harness.update_server();
