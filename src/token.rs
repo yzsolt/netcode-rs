@@ -40,9 +40,27 @@ pub enum DecodeError {
     Decrypt(#[from] crypto::EncryptError),
 }
 
-const NETCODE_ADDRESS_NONE: u8 = 0;
-const NETCODE_ADDRESS_IPV4: u8 = 1;
-const NETCODE_ADDRESS_IPV6: u8 = 2;
+enum HostAddressType {
+    None = 0,
+    IpV4 = 1,
+    IpV6 = 2,
+}
+
+impl TryFrom<u8> for HostAddressType {
+    type Error = io::Error;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::None),
+            1 => Ok(Self::IpV4),
+            2 => Ok(Self::IpV6),
+            _ => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Unknown IP address type",
+            )),
+        }
+    }
+}
 
 const ADDITIONAL_DATA_SIZE: usize = VERSION_LEN + 8 + 8;
 
@@ -488,28 +506,22 @@ impl HostList {
         let mut hosts = [None; MAX_SERVERS_PER_CONNECT];
 
         for host in hosts.iter_mut().take(host_count as usize) {
-            let host_type = source.read_u8()?;
+            let host_type = HostAddressType::try_from(source.read_u8()?)?;
             match host_type {
-                NETCODE_ADDRESS_IPV4 => {
+                HostAddressType::IpV4 => {
                     let ip = source.read_u32::<BigEndian>()?;
                     let port = source.read_u16::<LittleEndian>()?;
 
                     *host = Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::from(ip)), port))
                 }
-                NETCODE_ADDRESS_IPV6 => {
+                HostAddressType::IpV6 => {
                     let mut ip = [0; 16];
                     source.read_exact(&mut ip)?;
                     let port = source.read_u16::<LittleEndian>()?;
 
                     *host = Some(SocketAddr::new(IpAddr::V6(Ipv6Addr::from(ip)), port))
                 }
-                NETCODE_ADDRESS_NONE => {} // Skip blanks
-                _ => {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "Unknown ip address type",
-                    ));
-                }
+                HostAddressType::None => {} // Skip blanks
             }
         }
 
@@ -531,7 +543,7 @@ impl HostList {
         for host in self.iter() {
             match host {
                 SocketAddr::V4(addr) => {
-                    out.write_u8(NETCODE_ADDRESS_IPV4)?;
+                    out.write_u8(HostAddressType::IpV4 as u8)?;
                     let ip = addr.ip().octets();
 
                     for i in ip.iter().take(4) {
@@ -539,7 +551,7 @@ impl HostList {
                     }
                 }
                 SocketAddr::V6(addr) => {
-                    out.write_u8(NETCODE_ADDRESS_IPV6)?;
+                    out.write_u8(HostAddressType::IpV6 as u8)?;
                     let ip = addr.ip().octets();
 
                     for i in ip.iter().take(16) {
