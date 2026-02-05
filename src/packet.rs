@@ -122,13 +122,13 @@ where
 fn get_additional_data(
     prefix: u8,
     protocol_id: u64,
-) -> Result<[u8; NETCODE_VERSION_LEN + 8 + 1], io::Error> {
-    let mut buffer = [0; NETCODE_VERSION_LEN + 8 + 1];
+) -> Result<[u8; VERSION_LEN + 8 + 1], io::Error> {
+    let mut buffer = [0; VERSION_LEN + 8 + 1];
 
     {
         let mut writer = io::Cursor::new(&mut buffer[..]);
 
-        writer.write_all(&NETCODE_VERSION_STRING[..])?;
+        writer.write_all(&VERSION_STRING[..])?;
         writer.write_u64::<LittleEndian>(protocol_id)?;
         writer.write_u8(prefix)?;
     }
@@ -149,7 +149,7 @@ pub fn decode(
     data: &[u8],
     protocol_id: u64,
     private_key: Option<&Key>,
-    out: &mut [u8; NETCODE_MAX_PAYLOAD_SIZE],
+    out: &mut [u8; MAX_PAYLOAD_SIZE],
 ) -> Result<(u64, Packet), PacketError> {
     let source = &mut io::Cursor::new(data);
     let prefix_byte = source.read_u8()?;
@@ -224,7 +224,7 @@ pub fn encode(
             (prefix_byte, write.position() as usize)
         };
 
-        let mut scratch = [0; NETCODE_MAX_PACKET_SIZE];
+        let mut scratch = [0; MAX_PACKET_SIZE];
         let scratch_written = {
             let mut scratch_write = io::Cursor::new(&mut scratch[..]);
             packet.write(&mut scratch_write)?;
@@ -255,17 +255,17 @@ pub fn encode(
 }
 
 pub struct ConnectionRequestPacket {
-    pub version: [u8; NETCODE_VERSION_LEN],
+    pub version: [u8; VERSION_LEN],
     pub protocol_id: u64,
     pub token_expires: UtcTimestamp,
     pub nonce: token::ConnectTokenNonce,
-    pub private_data: [u8; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES],
+    pub private_data: [u8; CONNECT_TOKEN_PRIVATE_BYTES],
 }
 
 impl ConnectionRequestPacket {
     pub fn from_token(token: &token::ConnectToken) -> Self {
         Self {
-            version: *NETCODE_VERSION_STRING,
+            version: *VERSION_STRING,
             protocol_id: token.protocol,
             token_expires: token.expires,
             nonce: token.nonce,
@@ -277,7 +277,7 @@ impl ConnectionRequestPacket {
     where
         R: io::Read,
     {
-        let mut version = [0; NETCODE_VERSION_LEN];
+        let mut version = [0; VERSION_LEN];
         source.read_exact(&mut version[..])?;
 
         let protocol_id = source.read_u64::<LittleEndian>()?;
@@ -286,7 +286,7 @@ impl ConnectionRequestPacket {
         let mut nonce = token::ConnectTokenNonce::default();
         source.read_exact(&mut nonce)?;
 
-        let mut private_data = [0; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES];
+        let mut private_data = [0; CONNECT_TOKEN_PRIVATE_BYTES];
         source.read_exact(&mut private_data[..])?;
 
         Ok(Self {
@@ -362,7 +362,7 @@ impl ChallengeToken {
 
 pub struct ChallengePacket {
     pub token_sequence: u64,
-    pub token_data: [u8; NETCODE_CHALLENGE_TOKEN_BYTES],
+    pub token_data: [u8; CHALLENGE_TOKEN_BYTES],
 }
 
 #[derive(Debug)]
@@ -393,12 +393,12 @@ impl ChallengePacket {
         const MAC_BYTES: usize = 16;
 
         let token = ChallengeToken::generate(client_id, connect_user_data);
-        let mut scratch = [0; NETCODE_CHALLENGE_TOKEN_BYTES - MAC_BYTES];
+        let mut scratch = [0; CHALLENGE_TOKEN_BYTES - MAC_BYTES];
         token.write(&mut io::Cursor::new(&mut scratch[..]))?;
 
         let nonce = sequence_to_nonce(challenge_sequence);
 
-        let mut token_data = [0; NETCODE_CHALLENGE_TOKEN_BYTES];
+        let mut token_data = [0; CHALLENGE_TOKEN_BYTES];
         crypto::encode::<ChaCha20Poly1305>(
             &mut token_data[..],
             &scratch[..],
@@ -415,7 +415,7 @@ impl ChallengePacket {
 
     #[cfg(test)]
     pub fn decode(&self, challenge_key: &Key) -> Result<ChallengeToken, ChallengeEncodeError> {
-        let mut decoded = [0; NETCODE_CHALLENGE_TOKEN_BYTES];
+        let mut decoded = [0; CHALLENGE_TOKEN_BYTES];
         let nonce = sequence_to_nonce(self.token_sequence);
 
         crypto::decode::<ChaCha20Poly1305>(
@@ -434,7 +434,7 @@ impl ChallengePacket {
         R: io::Read,
     {
         let token_sequence = source.read_u64::<LittleEndian>()?;
-        let mut token_data = [0; NETCODE_CHALLENGE_TOKEN_BYTES];
+        let mut token_data = [0; CHALLENGE_TOKEN_BYTES];
         source.read_exact(&mut token_data)?;
 
         Ok(Self {
@@ -456,7 +456,7 @@ impl ChallengePacket {
 
 pub struct ResponsePacket {
     pub token_sequence: u64,
-    pub token_data: [u8; NETCODE_CHALLENGE_TOKEN_BYTES],
+    pub token_data: [u8; CHALLENGE_TOKEN_BYTES],
 }
 
 impl ResponsePacket {
@@ -465,7 +465,7 @@ impl ResponsePacket {
         R: io::Read,
     {
         let token_sequence = source.read_u64::<LittleEndian>()?;
-        let mut token_data = [0; NETCODE_CHALLENGE_TOKEN_BYTES];
+        let mut token_data = [0; CHALLENGE_TOKEN_BYTES];
         source.read_exact(&mut token_data)?;
 
         Ok(Self {
@@ -475,7 +475,7 @@ impl ResponsePacket {
     }
 
     pub fn decode(&self, challenge_key: &Key) -> Result<ChallengeToken, ChallengeEncodeError> {
-        let mut decoded = [0; NETCODE_CHALLENGE_TOKEN_BYTES];
+        let mut decoded = [0; CHALLENGE_TOKEN_BYTES];
         let nonce = sequence_to_nonce(self.token_sequence);
 
         crypto::decode::<ChaCha20Poly1305>(
@@ -575,8 +575,8 @@ mod test {
         let protocol_id = 0xFFCC;
         let pkey = crypto::generate_key();
 
-        let mut scratch = [0; NETCODE_MAX_PACKET_SIZE];
-        let mut out_packet = [0; NETCODE_MAX_PAYLOAD_SIZE];
+        let mut scratch = [0; MAX_PACKET_SIZE];
+        let mut out_packet = [0; MAX_PAYLOAD_SIZE];
         let length = encode(
             &mut scratch[..],
             protocol_id,
@@ -637,14 +637,14 @@ mod test {
         let packet = Packet::ConnectionRequest(ConnectionRequestPacket {
             protocol_id,
             nonce,
-            version: *NETCODE_VERSION_STRING,
+            version: *VERSION_STRING,
             token_expires: token.expires,
             private_data: token.private_data,
         });
 
         test_encode_decode(packet, None, Some(pkey), |p| match p {
             Packet::ConnectionRequest(p) => {
-                assert_eq!(p.version, *NETCODE_VERSION_STRING);
+                assert_eq!(p.version, *VERSION_STRING);
                 assert_eq!(p.protocol_id, protocol_id);
                 assert_eq!(p.token_expires, token.expires);
                 assert_eq!(p.nonce, nonce);
@@ -665,7 +665,7 @@ mod test {
     #[test]
     fn test_challenge_packet() {
         let token_sequence = 0xFFDD;
-        let mut token_data = [0; NETCODE_CHALLENGE_TOKEN_BYTES];
+        let mut token_data = [0; CHALLENGE_TOKEN_BYTES];
         for (i, td) in token_data.iter_mut().enumerate() {
             *td = i as u8;
         }
@@ -690,7 +690,7 @@ mod test {
     #[test]
     fn test_response_packet() {
         let token_sequence = 0xFFDD;
-        let mut token_data = [0; NETCODE_CHALLENGE_TOKEN_BYTES];
+        let mut token_data = [0; CHALLENGE_TOKEN_BYTES];
         for (i, td) in token_data.iter_mut().enumerate() {
             *td = i as u8;
         }
@@ -735,7 +735,7 @@ mod test {
 
     #[test]
     fn test_payload_packet() {
-        for i in 1..NETCODE_MAX_PAYLOAD_SIZE {
+        for i in 1..MAX_PAYLOAD_SIZE {
             let data = (0..i).map(|v| v as u8).collect::<Vec<u8>>();
 
             test_encode_decode(Packet::Payload(i), Some(&data[..]), None, |p| match p {

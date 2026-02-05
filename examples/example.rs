@@ -7,8 +7,7 @@
 //! terminate when it hears the disconnect from the client.
 
 use netcode_rs::{
-    ClientEvent, ClientState, NETCODE_MAX_PAYLOAD_SIZE, ServerEvent, UdpClient, UdpServer,
-    generate_key,
+    ClientEvent, ClientState, MAX_PAYLOAD_SIZE, ServerEvent, UdpClient, UdpServer, generate_key,
 };
 
 use std::io::{self, BufRead};
@@ -63,7 +62,7 @@ fn main() {
             let elapsed = sleep_for_tick(&mut last);
             server.update(elapsed);
 
-            let mut packet = [0; NETCODE_MAX_PAYLOAD_SIZE];
+            let mut packet = [0; MAX_PAYLOAD_SIZE];
             while let Some(event) = server.next_event(&mut packet).unwrap() {
                 match event {
                     ServerEvent::ClientConnect(_id) => println!("Server: client connected"),
@@ -91,7 +90,7 @@ fn main() {
             let elapsed = sleep_for_tick(&mut last);
             client.update(elapsed);
 
-            let mut packet = [0; NETCODE_MAX_PAYLOAD_SIZE];
+            let mut packet = [0; MAX_PAYLOAD_SIZE];
             while let Some(event) = client.next_event(&mut packet).unwrap() {
                 match event {
                     ClientEvent::NewState(state) => match state {

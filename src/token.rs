@@ -62,7 +62,7 @@ const NETCODE_ADDRESS_NONE: u8 = 0;
 const NETCODE_ADDRESS_IPV4: u8 = 1;
 const NETCODE_ADDRESS_IPV6: u8 = 2;
 
-const NETCODE_ADDITIONAL_DATA_SIZE: usize = NETCODE_VERSION_LEN + 8 + 8;
+const ADDITIONAL_DATA_SIZE: usize = VERSION_LEN + 8 + 8;
 
 /// Nonce for encrypting private connect token data using the `XChaCha20Poly1305` AEAD primitive
 pub type ConnectTokenNonce = [u8; 24];
@@ -84,7 +84,7 @@ pub struct ConnectToken {
     /// Nonce for decoding private data.
     pub nonce: ConnectTokenNonce,
     /// Private data encryped with server's private key(separate from client <-> server keys).
-    pub private_data: [u8; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES],
+    pub private_data: [u8; CONNECT_TOKEN_PRIVATE_BYTES],
     /// List of hosts this token supports connecting to.
     pub hosts: HostList,
     /// Private key for client -> server communcation.
@@ -129,7 +129,7 @@ pub struct PrivateData {
 
 #[derive(Clone, Debug)]
 pub struct HostList {
-    hosts: [Option<SocketAddr>; NETCODE_MAX_SERVERS_PER_CONNECT],
+    hosts: [Option<SocketAddr>; MAX_SERVERS_PER_CONNECT],
 }
 
 fn generate_user_data() -> UserData {
@@ -143,13 +143,13 @@ fn generate_user_data() -> UserData {
 fn generate_additional_data(
     protocol: u64,
     expires: &UtcTimestamp,
-) -> Result<[u8; NETCODE_ADDITIONAL_DATA_SIZE], io::Error> {
-    let mut scratch = [0; NETCODE_ADDITIONAL_DATA_SIZE];
+) -> Result<[u8; ADDITIONAL_DATA_SIZE], io::Error> {
+    let mut scratch = [0; ADDITIONAL_DATA_SIZE];
 
     {
         let mut out = io::Cursor::new(&mut scratch[..]);
 
-        out.write_all(NETCODE_VERSION_STRING)?;
+        out.write_all(VERSION_STRING)?;
         out.write_u64::<LittleEndian>(protocol)?;
         out.write_u64::<LittleEndian>((*expires).into())?;
     }
@@ -190,7 +190,7 @@ impl ConnectToken {
         H: ExactSizeIterator<Item = I>,
         I: Into<String>,
     {
-        if hosts.len() > NETCODE_MAX_SERVERS_PER_CONNECT {
+        if hosts.len() > MAX_SERVERS_PER_CONNECT {
             return Err(GenerateError::MaxHostCount);
         }
 
@@ -239,7 +239,7 @@ impl ConnectToken {
     where
         H: ExactSizeIterator<Item = SocketAddr>,
     {
-        if hosts.len() > NETCODE_MAX_SERVERS_PER_CONNECT {
+        if hosts.len() > MAX_SERVERS_PER_CONNECT {
             return Err(GenerateError::MaxHostCount);
         }
 
@@ -274,7 +274,7 @@ impl ConnectToken {
 
         let decoded_data = PrivateData::new(client_id, timeout, hosts, user_data);
 
-        let mut private_data = [0; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES];
+        let mut private_data = [0; CONNECT_TOKEN_PRIVATE_BYTES];
         decoded_data.encode(&mut private_data, protocol, &expires, nonce, private_key)?;
 
         Ok(Self {
@@ -310,7 +310,7 @@ impl ConnectToken {
     where
         W: io::Write,
     {
-        out.write_all(NETCODE_VERSION_STRING)?;
+        out.write_all(VERSION_STRING)?;
         out.write_u64::<LittleEndian>(self.protocol)?;
         out.write_u64::<LittleEndian>(self.created.into())?;
         out.write_u64::<LittleEndian>(self.expires.into())?;
@@ -329,11 +329,11 @@ impl ConnectToken {
     where
         R: io::Read,
     {
-        let mut version = [0; NETCODE_VERSION_LEN];
+        let mut version = [0; VERSION_LEN];
 
         source.read_exact(&mut version)?;
 
-        if &version != NETCODE_VERSION_STRING {
+        if &version != VERSION_STRING {
             return Err(DecodeError::InvalidVersion);
         }
 
@@ -344,7 +344,7 @@ impl ConnectToken {
         let mut nonce = ConnectTokenNonce::default();
         source.read_exact(&mut nonce)?;
 
-        let mut private_data = [0; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES];
+        let mut private_data = [0; CONNECT_TOKEN_PRIVATE_BYTES];
         source.read_exact(&mut private_data)?;
 
         let timeout_sec = source.read_u32::<LittleEndian>()?;
@@ -395,15 +395,14 @@ impl PrivateData {
     }
 
     pub fn decode(
-        encoded: &[u8; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES],
+        encoded: &[u8; CONNECT_TOKEN_PRIVATE_BYTES],
         protocol_id: u64,
         expires: &UtcTimestamp,
         nonce: &ConnectTokenNonce,
         private_key: &Key,
     ) -> Result<Self, DecodeError> {
         let additional_data = generate_additional_data(protocol_id, expires)?;
-        let mut decoded =
-            [0; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES - crypto::NETCODE_ENCRYPT_EXTA_BYTES];
+        let mut decoded = [0; CONNECT_TOKEN_PRIVATE_BYTES - crypto::ENCRYPT_EXTA_BYTES];
 
         crypto::decode::<XChaCha20Poly1305>(
             &mut decoded,
@@ -418,15 +417,14 @@ impl PrivateData {
 
     pub fn encode(
         &self,
-        out: &mut [u8; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES],
+        out: &mut [u8; CONNECT_TOKEN_PRIVATE_BYTES],
         protocol_id: u64,
         expiration: &UtcTimestamp,
         nonce: &ConnectTokenNonce,
         private_key: &Key,
     ) -> Result<(), GenerateError> {
         let additional_data = generate_additional_data(protocol_id, expiration)?;
-        let mut scratch =
-            [0; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES - crypto::NETCODE_ENCRYPT_EXTA_BYTES];
+        let mut scratch = [0; CONNECT_TOKEN_PRIVATE_BYTES - crypto::ENCRYPT_EXTA_BYTES];
 
         self.write(&mut io::Cursor::new(&mut scratch[..]))?;
 
@@ -491,9 +489,9 @@ impl HostList {
     where
         I: Iterator<Item = SocketAddr>,
     {
-        let mut final_hosts = [None; NETCODE_MAX_SERVERS_PER_CONNECT];
+        let mut final_hosts = [None; MAX_SERVERS_PER_CONNECT];
 
-        for (i, host) in hosts.enumerate().take(NETCODE_MAX_SERVERS_PER_CONNECT) {
+        for (i, host) in hosts.enumerate().take(MAX_SERVERS_PER_CONNECT) {
             final_hosts[i] = Some(host);
         }
 
@@ -505,7 +503,7 @@ impl HostList {
         R: io::Read,
     {
         let host_count = source.read_u32::<LittleEndian>()?;
-        let mut hosts = [None; NETCODE_MAX_SERVERS_PER_CONNECT];
+        let mut hosts = [None; MAX_SERVERS_PER_CONNECT];
 
         for host in hosts.iter_mut().take(host_count as usize) {
             let host_type = source.read_u8()?;
@@ -618,7 +616,7 @@ impl<'a> ExactSizeIterator for HostIterator<'a> {
 mod test {
     use super::*;
 
-    const NETCODE_CONNECT_TOKEN_BYTES: usize = 2048;
+    const CONNECT_TOKEN_BYTES: usize = 2048;
 
     #[test]
     fn read_write() {
@@ -649,7 +647,7 @@ mod test {
         )
         .unwrap();
 
-        let mut scratch = [0; NETCODE_CONNECT_TOKEN_BYTES];
+        let mut scratch = [0; CONNECT_TOKEN_BYTES];
         token.write(&mut io::Cursor::new(&mut scratch[..])).unwrap();
 
         let read = ConnectToken::read(&mut io::Cursor::new(&scratch[..])).unwrap();

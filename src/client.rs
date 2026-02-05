@@ -41,7 +41,7 @@ enum InternalState {
 #[allow(clippy::large_enum_variant)]
 enum ConnectSequence {
     SendingToken,
-    SendingChallenge(u64, [u8; NETCODE_CHALLENGE_TOKEN_BYTES]),
+    SendingChallenge(u64, [u8; CHALLENGE_TOKEN_BYTES]),
 }
 
 impl Clone for ConnectSequence {
@@ -224,7 +224,7 @@ where
     fn send_challenge_token(
         &mut self,
         sequence: u64,
-        token: &[u8; NETCODE_CHALLENGE_TOKEN_BYTES],
+        token: &[u8; CHALLENGE_TOKEN_BYTES],
     ) -> Result<usize, SendError> {
         let packet = packet::ResponsePacket {
             token_sequence: sequence,
@@ -298,11 +298,11 @@ where
     /// are pending.
     pub fn next_event(
         &mut self,
-        payload: &mut [u8; NETCODE_MAX_PAYLOAD_SIZE],
+        payload: &mut [u8; MAX_PAYLOAD_SIZE],
     ) -> Result<Option<ClientEvent>, UpdateError> {
         let mut new_state = None;
 
-        let mut scratch = [0; NETCODE_MAX_PACKET_SIZE];
+        let mut scratch = [0; MAX_PACKET_SIZE];
         let socket_result = match self.data.socket.recv_from(&mut scratch[..]) {
             Ok((len, addr)) => {
                 if addr == *self.data.channel.get_addr() {
@@ -392,7 +392,7 @@ where
     /// Sends a packet to connected server.
     pub fn send(&mut self, payload: &[u8]) -> Result<usize, SendError> {
         match payload.len() {
-            0 | NETCODE_MAX_PAYLOAD_SIZE => return Err(SendError::PacketSize),
+            0 | MAX_PAYLOAD_SIZE => return Err(SendError::PacketSize),
             _ => (),
         }
 
@@ -511,14 +511,14 @@ mod test {
         }
 
         pub fn update_client(&mut self) -> Option<ClientEvent> {
-            let mut scratch = [0; NETCODE_MAX_PAYLOAD_SIZE];
+            let mut scratch = [0; MAX_PAYLOAD_SIZE];
             self.client.update(Duration::ZERO);
             self.client.next_event(&mut scratch).unwrap()
         }
 
         pub fn update_server(&mut self) -> Option<ServerEvent> {
             if let Some(ref mut server) = self.server {
-                let mut scratch = [0; NETCODE_MAX_PAYLOAD_SIZE];
+                let mut scratch = [0; MAX_PAYLOAD_SIZE];
                 server.update(Duration::ZERO);
                 server.next_event(&mut scratch).unwrap()
             } else {
@@ -564,8 +564,8 @@ mod test {
             s => unreachable!("{:?}", s),
         }
 
-        for i in 1..NETCODE_MAX_PAYLOAD_SIZE {
-            let mut data = [0; NETCODE_MAX_PAYLOAD_SIZE];
+        for i in 1..MAX_PAYLOAD_SIZE {
+            let mut data = [0; MAX_PAYLOAD_SIZE];
             for (i, d) in data.iter_mut().enumerate() {
                 *d = i as u8;
             }
@@ -574,7 +574,7 @@ mod test {
             if let Some(server) = harness.server.as_mut() {
                 {
                     server.update(Duration::ZERO);
-                    let mut payload = [0; NETCODE_MAX_PAYLOAD_SIZE];
+                    let mut payload = [0; MAX_PAYLOAD_SIZE];
                     match server.next_event(&mut payload) {
                         Ok(Some(ServerEvent::Packet(client_id, len))) => {
                             assert_eq!(len, i);
@@ -591,7 +591,7 @@ mod test {
                 {
                     server.send(CLIENT_ID, &data[..i]).unwrap();
                     harness.client.update(Duration::ZERO);
-                    let mut payload = [0; NETCODE_MAX_PAYLOAD_SIZE];
+                    let mut payload = [0; MAX_PAYLOAD_SIZE];
                     match harness.client.next_event(&mut payload) {
                         Ok(Some(ClientEvent::Packet(len))) => {
                             assert_eq!(len, i);

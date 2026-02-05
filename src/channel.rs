@@ -95,7 +95,7 @@ impl Channel {
     where
         I: SocketProvider<I, S>,
     {
-        let mut scratch = [0; NETCODE_MAX_PACKET_SIZE];
+        let mut scratch = [0; MAX_PACKET_SIZE];
         let len = packet::encode(
             &mut scratch,
             self.protocol_id,
@@ -116,7 +116,7 @@ impl Channel {
         &mut self,
         current_time: Instant,
         packet: &[u8],
-        out_payload: &mut [u8; NETCODE_MAX_PAYLOAD_SIZE],
+        out_payload: &mut [u8; MAX_PAYLOAD_SIZE],
     ) -> Result<Packet, RecvError> {
         let (seq, packet) =
             packet::decode(packet, self.protocol_id, Some(&self.recv_key), out_payload)?;

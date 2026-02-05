@@ -64,7 +64,7 @@ type ClientVec = Vec<Option<Connection>>;
 /// Netcode server object.
 /// # Example
 /// ```rust
-/// use netcode_rs::{UdpServer, ServerEvent, generate_key, NETCODE_MAX_PAYLOAD_SIZE};
+/// use netcode_rs::{UdpServer, ServerEvent, generate_key, MAX_PAYLOAD_SIZE};
 /// use std::time::Duration;
 ///
 /// fn run_server() {
@@ -77,7 +77,7 @@ type ClientVec = Vec<Option<Connection>>;
 ///
 ///     loop {
 ///         server.update(Duration::from_millis(100));
-///         let mut packet_data = [0; NETCODE_MAX_PAYLOAD_SIZE];
+///         let mut packet_data = [0; MAX_PAYLOAD_SIZE];
 ///         match server.next_event(&mut packet_data) {
 ///             Ok(Some(e)) => {
 ///                 match e {
@@ -208,7 +208,7 @@ where
 
     /// Sends a packet to `client_id` specified.
     pub fn send(&mut self, client_id: ClientId, packet: &[u8]) -> Result<usize, SendError> {
-        if packet.is_empty() || packet.len() > NETCODE_MAX_PAYLOAD_SIZE {
+        if packet.is_empty() || packet.len() > MAX_PAYLOAD_SIZE {
             return Err(SendError::PacketSize);
         }
 
@@ -235,13 +235,13 @@ where
     /// are pending.
     pub fn next_event(
         &mut self,
-        out_packet: &mut [u8; NETCODE_MAX_PAYLOAD_SIZE],
+        out_packet: &mut [u8; MAX_PAYLOAD_SIZE],
     ) -> Result<Option<ServerEvent>, UpdateError> {
-        if out_packet.len() < NETCODE_MAX_PAYLOAD_SIZE {
+        if out_packet.len() < MAX_PAYLOAD_SIZE {
             return Err(UpdateError::PacketBufferTooSmall);
         }
 
-        let mut scratch = [0; NETCODE_MAX_PACKET_SIZE];
+        let mut scratch = [0; MAX_PACKET_SIZE];
         let result = match self.internal.listen_socket.recv_from(&mut scratch) {
             Ok((len, addr)) => self.handle_io(&addr, &scratch[..len], out_packet),
             Err(e) => match e.kind() {
@@ -325,7 +325,7 @@ where
         &mut self,
         addr: &SocketAddr,
         data: &[u8],
-        payload: &mut [u8; NETCODE_MAX_PAYLOAD_SIZE],
+        payload: &mut [u8; MAX_PAYLOAD_SIZE],
     ) -> Result<Option<ServerEvent>, UpdateError> {
         let result = if let Some(client) = Self::find_client_by_addr(&mut self.clients, addr) {
             //Make sure we aren't still trying to connect
@@ -509,10 +509,10 @@ where
         &mut self,
         req: &packet::ConnectionRequestPacket,
     ) -> Option<token::PrivateData> {
-        if req.version != *NETCODE_VERSION_STRING {
+        if req.version != *VERSION_STRING {
             trace!(
                 "Version mismatch expected {:?} but got {:?}",
-                NETCODE_VERSION_STRING, req.version
+                VERSION_STRING, req.version
             );
 
             return None;
@@ -591,7 +591,7 @@ where
         &mut self,
         addr: &SocketAddr,
         data: &[u8],
-        payload: &mut [u8; NETCODE_MAX_PAYLOAD_SIZE],
+        payload: &mut [u8; MAX_PAYLOAD_SIZE],
         clients: &mut ClientVec,
     ) -> Result<Option<ServerEvent>, UpdateError> {
         trace!("New data on listening socket");
@@ -629,7 +629,7 @@ where
         &mut self,
         client: &mut Connection,
         packet: &[u8],
-        out_packet: &mut [u8; NETCODE_MAX_PAYLOAD_SIZE],
+        out_packet: &mut [u8; MAX_PAYLOAD_SIZE],
     ) -> Result<Option<ServerEvent>, UpdateError> {
         if packet.is_empty() {
             return Ok(None);
@@ -806,18 +806,18 @@ mod test {
         }
 
         pub fn send_connect_packet(&mut self) {
-            let mut private_data = [0; NETCODE_CONNECT_TOKEN_PRIVATE_BYTES];
+            let mut private_data = [0; CONNECT_TOKEN_PRIVATE_BYTES];
             private_data.copy_from_slice(&self.connect_token.private_data);
 
             let packet = Packet::ConnectionRequest(ConnectionRequestPacket {
-                version: *NETCODE_VERSION_STRING,
+                version: *VERSION_STRING,
                 protocol_id: PROTOCOL_ID,
                 token_expires: self.connect_token.expires,
                 nonce: self.connect_token.nonce,
                 private_data,
             });
 
-            let mut data = [0; NETCODE_MAX_PACKET_SIZE];
+            let mut data = [0; MAX_PACKET_SIZE];
             let len = packet::encode(&mut data, PROTOCOL_ID, &packet, None, None).unwrap();
             self.socket
                 .send_to(&data[..len], &self.server.get_local_addr().unwrap())
@@ -825,19 +825,19 @@ mod test {
         }
 
         fn validate_challenge(&mut self) {
-            let mut data = [0; NETCODE_MAX_PAYLOAD_SIZE];
+            let mut data = [0; MAX_PAYLOAD_SIZE];
             self.server.update(Duration::ZERO);
             self.server.next_event(&mut data).unwrap();
         }
 
         fn read_challenge(&mut self) -> ChallengePacket {
-            let mut data = [0; NETCODE_MAX_PACKET_SIZE];
+            let mut data = [0; MAX_PACKET_SIZE];
             self.socket
                 .set_recv_timeout(Some(Duration::from_secs(15)))
                 .unwrap();
             let (read, _) = self.socket.recv_from(&mut data).unwrap();
 
-            let mut packet_data = [0; NETCODE_MAX_PAYLOAD_SIZE];
+            let mut packet_data = [0; MAX_PAYLOAD_SIZE];
             match packet::decode(
                 &data[..read],
                 PROTOCOL_ID,
@@ -857,7 +857,7 @@ mod test {
                 token_data: token.token_data,
             });
 
-            let mut data = [0; NETCODE_MAX_PACKET_SIZE];
+            let mut data = [0; MAX_PACKET_SIZE];
             let len = packet::encode(
                 &mut data,
                 PROTOCOL_ID,
@@ -875,7 +875,7 @@ mod test {
         }
 
         fn validate_response(&mut self) {
-            let mut data = [0; NETCODE_MAX_PAYLOAD_SIZE];
+            let mut data = [0; MAX_PAYLOAD_SIZE];
             self.server.update(Duration::ZERO);
             let event = self.server.next_event(&mut data);
 
@@ -884,7 +884,7 @@ mod test {
                 e => unreachable!("{:?}", e),
             }
 
-            let mut scratch = [0; NETCODE_MAX_PACKET_SIZE];
+            let mut scratch = [0; MAX_PACKET_SIZE];
             let (keep_alive, _) = self.socket.recv_from(&mut scratch).unwrap();
             match packet::decode(
                 &scratch[..keep_alive],
@@ -899,13 +899,10 @@ mod test {
             }
         }
 
-        fn generate_payload_packet(
-            &mut self,
-            payload: &[u8],
-        ) -> (usize, [u8; NETCODE_MAX_PACKET_SIZE]) {
+        fn generate_payload_packet(&mut self, payload: &[u8]) -> (usize, [u8; MAX_PACKET_SIZE]) {
             let packet = Packet::Payload(payload.len());
 
-            let mut data = [0; NETCODE_MAX_PACKET_SIZE];
+            let mut data = [0; MAX_PACKET_SIZE];
             let len = packet::encode(
                 &mut data,
                 PROTOCOL_ID,
@@ -930,7 +927,7 @@ mod test {
 
         fn validate_recv_payload(&mut self, payload: &[u8]) {
             self.server.update(Duration::ZERO);
-            let mut data = [0; NETCODE_MAX_PAYLOAD_SIZE];
+            let mut data = [0; MAX_PAYLOAD_SIZE];
 
             loop {
                 match self.server.next_event(&mut data) {
@@ -952,13 +949,13 @@ mod test {
         }
 
         fn validate_send_payload(&mut self, payload: &[u8]) {
-            let mut data = [0; NETCODE_MAX_PACKET_SIZE];
+            let mut data = [0; MAX_PACKET_SIZE];
             self.socket
                 .set_recv_timeout(Some(Duration::from_secs(15)))
                 .unwrap();
             let (read, _) = self.socket.recv_from(&mut data).unwrap();
 
-            let mut packet_data = [0; NETCODE_MAX_PAYLOAD_SIZE];
+            let mut packet_data = [0; MAX_PAYLOAD_SIZE];
             match packet::decode(
                 &data[..read],
                 PROTOCOL_ID,
@@ -995,7 +992,7 @@ mod test {
         harness.replace_connect_token(format!("0.0.0.0:{}", port).as_str(), None);
         harness.send_connect_packet();
 
-        let mut data = [0; NETCODE_MAX_PAYLOAD_SIZE];
+        let mut data = [0; MAX_PAYLOAD_SIZE];
         harness.server.update(Duration::ZERO);
         match harness.server.next_event(&mut data) {
             Ok(Some(ServerEvent::RejectedClient)) => {}
@@ -1013,7 +1010,7 @@ mod test {
         );
         harness.send_connect_packet();
 
-        let mut data = [0; NETCODE_MAX_PAYLOAD_SIZE];
+        let mut data = [0; MAX_PAYLOAD_SIZE];
         harness.server.update(Duration::ZERO);
         match harness.server.next_event(&mut data) {
             Ok(Some(ServerEvent::RejectedClient)) => {}
@@ -1030,7 +1027,7 @@ mod test {
         harness.send_response(challenge);
         harness.validate_response();
 
-        let mut data = [0; NETCODE_MAX_PAYLOAD_SIZE];
+        let mut data = [0; MAX_PAYLOAD_SIZE];
         for (i, d) in data.iter_mut().enumerate() {
             *d = i as u8;
         }
@@ -1047,7 +1044,7 @@ mod test {
             .send_to(&packet[..plen], harness.server.get_local_addr().unwrap())
             .unwrap();
         harness.server.update(Duration::ZERO);
-        let mut scratch = [0; NETCODE_MAX_PAYLOAD_SIZE];
+        let mut scratch = [0; MAX_PAYLOAD_SIZE];
         match harness.server.next_event(&mut scratch) {
             Ok(Some(ServerEvent::ReplayRejected(cid))) => assert_eq!(cid, CLIENT_ID),
             o => unreachable!("unexpected {:?}", o),
@@ -1063,8 +1060,8 @@ mod test {
         harness.send_response(challenge);
         harness.validate_response();
 
-        for s in 1..NETCODE_MAX_PAYLOAD_SIZE {
-            let mut data = [0; NETCODE_MAX_PAYLOAD_SIZE];
+        for s in 1..MAX_PAYLOAD_SIZE {
+            let mut data = [0; MAX_PAYLOAD_SIZE];
             for (i, d) in data.iter_mut().enumerate().take(s) {
                 *d = i as u8;
             }

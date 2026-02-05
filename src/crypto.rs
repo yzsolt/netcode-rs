@@ -6,7 +6,7 @@ use chacha20poly1305::aead::{Aead, Nonce, Payload};
 
 use std::io;
 
-pub const NETCODE_ENCRYPT_EXTA_BYTES: usize = 16;
+pub const ENCRYPT_EXTA_BYTES: usize = 16;
 
 #[derive(Debug)]
 pub enum EncryptError {
@@ -42,7 +42,7 @@ pub fn encode<T: Aead + KeyInit>(
     nonce: &Nonce<T>,
     key: &Key,
 ) -> Result<usize, EncryptError> {
-    if out.len() < data.len() + NETCODE_ENCRYPT_EXTA_BYTES {
+    if out.len() < data.len() + ENCRYPT_EXTA_BYTES {
         return Err(EncryptError::BufferSizeMismatch);
     }
 
@@ -69,7 +69,7 @@ pub fn decode<T: Aead + KeyInit>(
     nonce: &Nonce<T>,
     key: &Key,
 ) -> Result<usize, EncryptError> {
-    if out.len() < data.len() - NETCODE_ENCRYPT_EXTA_BYTES {
+    if out.len() < data.len() - ENCRYPT_EXTA_BYTES {
         return Err(EncryptError::BufferSizeMismatch);
     }
 
