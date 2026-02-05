@@ -13,13 +13,33 @@ use crate::crypto::MAC_BYTES;
 use crate::time::UtcTimestamp;
 use crate::token;
 
-const PACKET_CONNECTION: u8 = 0;
-const PACKET_CONNECTION_DENIED: u8 = 1;
-const PACKET_CHALLENGE: u8 = 2;
-const PACKET_RESPONSE: u8 = 3;
-const PACKET_KEEPALIVE: u8 = 4;
-const PACKET_PAYLOAD: u8 = 5;
-const PACKET_DISCONNECT: u8 = 6;
+#[derive(Clone, Copy, Debug)]
+pub enum PacketTypeId {
+    ConnectionRequest = 0,
+    ConnectionDenied = 1,
+    Challenge = 2,
+    Response = 3,
+    KeepAlive = 4,
+    Payload = 5,
+    Disconnect = 6,
+}
+
+impl TryFrom<u8> for PacketTypeId {
+    type Error = PacketError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::ConnectionRequest),
+            1 => Ok(Self::ConnectionDenied),
+            2 => Ok(Self::Challenge),
+            3 => Ok(Self::Response),
+            4 => Ok(Self::KeepAlive),
+            5 => Ok(Self::Payload),
+            6 => Ok(Self::Disconnect),
+            _ => Err(PacketError::InvalidPacketType),
+        }
+    }
+}
 
 #[allow(clippy::large_enum_variant)]
 pub enum Packet {
@@ -33,15 +53,15 @@ pub enum Packet {
 }
 
 impl Packet {
-    pub fn get_type_id(&self) -> u8 {
+    pub fn type_id(&self) -> PacketTypeId {
         match *self {
-            Packet::ConnectionRequest(_) => PACKET_CONNECTION,
-            Packet::ConnectionDenied => PACKET_CONNECTION_DENIED,
-            Packet::Challenge(_) => PACKET_CHALLENGE,
-            Packet::Response(_) => PACKET_RESPONSE,
-            Packet::KeepAlive(_) => PACKET_KEEPALIVE,
-            Packet::Payload(_) => PACKET_PAYLOAD,
-            Packet::Disconnect => PACKET_DISCONNECT,
+            Packet::ConnectionRequest(_) => PacketTypeId::ConnectionRequest,
+            Packet::ConnectionDenied => PacketTypeId::ConnectionDenied,
+            Packet::Challenge(_) => PacketTypeId::Challenge,
+            Packet::Response(_) => PacketTypeId::Response,
+            Packet::KeepAlive(_) => PacketTypeId::KeepAlive,
+            Packet::Payload(_) => PacketTypeId::Payload,
+            Packet::Disconnect => PacketTypeId::Disconnect,
         }
     }
 
@@ -150,14 +170,13 @@ pub fn decode(
 ) -> Result<(u64, Packet), PacketError> {
     let source = &mut io::Cursor::new(data);
     let prefix_byte = source.read_u8()?;
-    let (ty, sequence_len) = decode_prefix(prefix_byte);
+    let (type_id, sequence_len) = decode_prefix(prefix_byte);
 
-    if ty == PACKET_CONNECTION {
-        Ok((
-            0,
-            Packet::ConnectionRequest(ConnectionRequestPacket::read(source)?),
-        ))
-    } else if let Some(private_key) = private_key {
+    let type_id = PacketTypeId::try_from(type_id)?;
+
+    let mut decrypt = || -> Result<(u64, usize), PacketError> {
+        let private_key = private_key.ok_or(PacketError::MissingPrivateKey)?;
+
         //Sequence length is variable on the wire so we have to serialize only
         //the number of bytes we were told exist.
         let sequence = read_sequence(source, sequence_len)?;
@@ -175,23 +194,45 @@ pub fn decode(
             private_key,
         )?;
 
-        let source_data = &mut io::Cursor::new(&out[..decoded_len]);
+        Ok((sequence, decoded_len))
+    };
 
-        let packet = match ty {
-            PACKET_CONNECTION_DENIED => Ok(Packet::ConnectionDenied),
-            PACKET_CHALLENGE => Ok(Packet::Challenge(ChallengePacket::read(source_data)?)),
-            PACKET_RESPONSE => Ok(Packet::Response(ResponsePacket::read(source_data)?)),
-            PACKET_KEEPALIVE => Ok(Packet::KeepAlive(KeepAlivePacket::read(source_data)?)),
-            PACKET_PAYLOAD => Ok(Packet::Payload(decoded_len)),
-            PACKET_DISCONNECT => Ok(Packet::Disconnect),
-            PACKET_CONNECTION => Err(PacketError::InvalidPacketType),
-            _ => Err(PacketError::InvalidPacketType),
-        };
-
-        packet.map(|p| (sequence, p))
-    } else {
-        Err(PacketError::MissingPrivateKey)
-    }
+    Ok(match type_id {
+        PacketTypeId::ConnectionRequest => (
+            0,
+            Packet::ConnectionRequest(ConnectionRequestPacket::read(source)?),
+        ),
+        PacketTypeId::ConnectionDenied => (
+            read_sequence(source, sequence_len)?,
+            Packet::ConnectionDenied,
+        ),
+        PacketTypeId::Disconnect => (read_sequence(source, sequence_len)?, Packet::Disconnect),
+        PacketTypeId::Payload => {
+            let (sequence, len) = decrypt()?;
+            (sequence, Packet::Payload(len))
+        }
+        PacketTypeId::Challenge => {
+            let (sequence, len) = decrypt()?;
+            (
+                sequence,
+                Packet::Challenge(ChallengePacket::read(&mut &out[..len])?),
+            )
+        }
+        PacketTypeId::Response => {
+            let (sequence, len) = decrypt()?;
+            (
+                sequence,
+                Packet::Response(ResponsePacket::read(&mut &out[..len])?),
+            )
+        }
+        PacketTypeId::KeepAlive => {
+            let (sequence, len) = decrypt()?;
+            (
+                sequence,
+                Packet::KeepAlive(KeepAlivePacket::read(&mut &out[..len])?),
+            )
+        }
+    })
 }
 
 pub fn encode(
@@ -205,7 +246,7 @@ pub fn encode(
         let mut writer = io::Cursor::new(&mut out[..]);
 
         //First byte is always id + sequence
-        writer.write_u8(encode_prefix(packet.get_type_id(), 0))?;
+        writer.write_u8(encode_prefix(packet.type_id() as u8, 0))?;
         req.write(&mut writer)?;
 
         Ok(writer.position() as usize)
@@ -214,7 +255,7 @@ pub fn encode(
             let write = &mut io::Cursor::new(&mut out[..]);
 
             //First byte is always id + sequence
-            let prefix_byte = encode_prefix(packet.get_type_id(), sequence);
+            let prefix_byte = encode_prefix(packet.type_id() as u8, sequence);
             write.write_u8(prefix_byte)?;
             write_sequence(write, sequence)?;
 

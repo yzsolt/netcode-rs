@@ -155,7 +155,7 @@ where
                 Ok(Some(ClientEvent::NewState(self.ext_state.clone())))
             }
             p => {
-                trace!("Unexpected packet type {}", p.get_type_id());
+                trace!("Unexpected packet type {:?}", p.type_id());
                 Ok(None)
             }
         }
@@ -204,7 +204,7 @@ where
                 }
             },
             p => {
-                trace!("Unexpected packet type {}, ignoring", p.get_type_id());
+                trace!("Unexpected packet type {:?}, ignoring", p.type_id());
                 Ok(None)
             }
         }

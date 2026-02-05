@@ -578,8 +578,8 @@ where
                 }
                 packet => {
                     trace!(
-                        "Expected Connection Request but got packet type {}",
-                        packet.get_type_id()
+                        "Expected Connection Request but got packet type {:?}",
+                        packet.type_id()
                     );
                     Ok(None)
                 }
@@ -645,7 +645,7 @@ where
                     Some(ServerEvent::ClientDisconnect(client.client_id))
                 }
                 other => {
-                    info!("Unexpected packet type {}", other.get_type_id());
+                    info!("Unexpected packet type {:?}", other.type_id());
                     None
                 }
             },
@@ -673,8 +673,8 @@ where
                 }
                 p => {
                     info!(
-                        "Unexpected packet type when waiting for response {}",
-                        p.get_type_id()
+                        "Unexpected packet type when waiting for response {:?}",
+                        p.type_id()
                     );
                     None
                 }
@@ -870,7 +870,7 @@ mod test {
             .unwrap()
             {
                 (_, Packet::KeepAlive(_)) => (),
-                (_, p) => unreachable!("{:?}", p.get_type_id()),
+                (_, p) => unreachable!("{:?}", p.type_id()),
             }
         }
 
@@ -944,7 +944,7 @@ mod test {
                         assert_eq!(packet_data[i], payload[i]);
                     }
                 }
-                Ok((_, p)) => unreachable!("unexpected packet type {}", p.get_type_id()),
+                Ok((_, p)) => unreachable!("unexpected packet type {:?}", p.type_id()),
                 Err(o) => unreachable!("unexpected {:?}", o),
             }
         }
