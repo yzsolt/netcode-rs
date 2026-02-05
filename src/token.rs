@@ -516,7 +516,7 @@ impl HostList {
         Ok(Self { hosts })
     }
 
-    pub fn get(&self) -> HostIterator<'_> {
+    pub fn iter(&self) -> HostIterator<'_> {
         HostIterator {
             hosts: self,
             idx: 0,
@@ -527,8 +527,8 @@ impl HostList {
     where
         W: io::Write,
     {
-        out.write_u32::<LittleEndian>(self.get().len() as u32)?;
-        for host in self.get() {
+        out.write_u32::<LittleEndian>(self.iter().len() as u32)?;
+        for host in self.iter() {
             match host {
                 SocketAddr::V4(addr) => {
                     out.write_u8(NETCODE_ADDRESS_IPV4)?;
@@ -567,17 +567,17 @@ pub struct HostIterator<'a> {
 }
 
 impl<'a> Iterator for HostIterator<'a> {
-    type Item = SocketAddr;
+    type Item = &'a SocketAddr;
 
-    fn next(&mut self) -> Option<SocketAddr> {
+    fn next(&mut self) -> Option<&'a SocketAddr> {
         if self.idx > self.hosts.hosts.len() {
             return None;
         }
 
-        let result = self.hosts.hosts[self.idx];
+        let idx = self.idx;
         self.idx += 1;
 
-        result
+        self.hosts.hosts[idx].as_ref()
     }
 }
 

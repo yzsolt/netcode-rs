@@ -506,8 +506,8 @@ where
             &req.nonce,
             &self.connect_key,
         ) {
-            let has_host = v.hosts.get().any(|thost| {
-                thost == self.listen_addr
+            let has_host = v.hosts.iter().any(|thost| {
+                *thost == self.listen_addr
                     || (self.listen_addr.port() == 0 && thost.ip() == self.listen_addr.ip())
             });
 

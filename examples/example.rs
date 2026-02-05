@@ -114,7 +114,7 @@ fn main() {
             };
 
             match result {
-                Some(ref s) if s == "exit" => {
+                Some(s) if s == "exit" => {
                     client.disconnect().unwrap_or(());
                     return;
                 }

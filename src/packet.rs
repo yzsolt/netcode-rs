@@ -49,11 +49,11 @@ impl Packet {
     where
         W: io::Write,
     {
-        match *self {
-            Packet::ConnectionRequest(ref p) => p.write(out),
-            Packet::Challenge(ref p) => p.write(out),
-            Packet::Response(ref p) => p.write(out),
-            Packet::KeepAlive(ref p) => p.write(out),
+        match self {
+            Packet::ConnectionRequest(p) => p.write(out),
+            Packet::Challenge(p) => p.write(out),
+            Packet::Response(p) => p.write(out),
+            Packet::KeepAlive(p) => p.write(out),
             Packet::ConnectionDenied | Packet::Payload(_) | Packet::Disconnect => Ok(()),
         }
     }
@@ -201,7 +201,7 @@ pub fn encode(
     crypt_info: Option<(u64, &Key)>,
     payload: Option<&[u8]>,
 ) -> Result<usize, PacketError> {
-    if let Packet::ConnectionRequest(ref req) = *packet {
+    if let Packet::ConnectionRequest(req) = packet {
         let mut writer = io::Cursor::new(&mut out[..]);
 
         //First byte is always id + sequence

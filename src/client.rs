@@ -115,7 +115,7 @@ where
     }
 
     fn connect_channel(&mut self, idx: usize) {
-        if let Some(ref addr) = self.token.hosts.get().nth(idx) {
+        if let Some(addr) = self.token.hosts.iter().nth(idx) {
             trace!("Created new channel to {:?}", addr);
             self.channel = Channel::new(
                 &self.token.client_to_server_key,
@@ -265,7 +265,7 @@ where
         let channel = Channel::new(
             &token.client_to_server_key,
             &token.server_to_client_key,
-            &token.hosts.get().next().unwrap(),
+            token.hosts.iter().next().unwrap(),
             token.protocol,
             0,
             0,
@@ -315,15 +315,16 @@ where
                     None
                 }
             }
-            Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => None,
+            Err(e) if e.kind() == io::ErrorKind::WouldBlock => None,
             Err(e) => return Err(RecvError::SocketError(e).into()),
         };
 
         //If we have any socket data process that first
         let socket_process = if let Some(packet) = socket_result {
-            match self.state {
-                InternalState::Connecting(idx, ref req) => {
-                    self.data.handle_response(&packet, req, &mut new_state, idx)
+            match &self.state {
+                InternalState::Connecting(idx, req) => {
+                    self.data
+                        .handle_response(&packet, req, &mut new_state, *idx)
                 }
                 InternalState::Connected => self.data.handle_payload(&packet, &mut new_state),
                 InternalState::Disconnected => Ok(None),
@@ -340,7 +341,7 @@ where
                         channel::UpdateResult::Expired => {
                             idx += 1;
 
-                            if idx >= self.data.token.hosts.get().len() {
+                            if idx >= self.data.token.hosts.iter().len() {
                                 info!("Failed to connect to last host, disconnecting");
                                 self.data.disconnect(&mut new_state)
                             } else {
@@ -353,14 +354,14 @@ where
                             }
                         }
                         channel::UpdateResult::SentKeepAlive => {
-                            let send = match *req {
+                            let send = match req {
                                 ConnectSequence::SendingToken => {
                                     trace!("Sending connect token");
                                     self.data.send_connect_token()
                                 }
-                                ConnectSequence::SendingChallenge(sequence, ref token) => {
+                                ConnectSequence::SendingChallenge(sequence, token) => {
                                     trace!("Sending challenge token");
-                                    self.data.send_challenge_token(sequence, token)
+                                    self.data.send_challenge_token(*sequence, token)
                                 }
                             };
 
@@ -468,8 +469,8 @@ mod test {
             let private_key = crypto::generate_key();
 
             let addr = "127.0.0.1:0".to_string();
-            let (server, mut client) = if let Some(ref token) = in_token {
-                let client = Client::<I, S>::new_with_state(token, I::new_state()).unwrap();
+            let (server, mut client) = if let Some(token) = in_token {
+                let client = Client::<I, S>::new_with_state(&token, I::new_state()).unwrap();
                 (None, client)
             } else {
                 let mut server =
@@ -516,7 +517,7 @@ mod test {
         }
 
         pub fn update_server(&mut self) -> Option<ServerEvent> {
-            if let Some(ref mut server) = self.server {
+            if let Some(server) = self.server.as_mut() {
                 let mut scratch = [0; MAX_PAYLOAD_SIZE];
                 server.update(Duration::ZERO);
                 server.next_event(&mut scratch).unwrap()
