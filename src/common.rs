@@ -12,7 +12,7 @@ pub const MAX_SERVERS_PER_CONNECT: usize = 16;
 pub const MAX_PACKET_SIZE: usize = 1200;
 
 /// Maximum size of a payload that can be sent (1175).
-pub const MAX_PAYLOAD_SIZE: usize = MAX_PACKET_SIZE - crypto::ENCRYPT_EXTA_BYTES - 8 - 1;
+pub const MAX_PAYLOAD_SIZE: usize = MAX_PACKET_SIZE - crypto::MAC_BYTES - 8 - 1;
 
 pub const VERSION_LEN: usize = 13;
 pub const VERSION_STRING: &[u8; VERSION_LEN] = b"NETCODE 1.02\0";

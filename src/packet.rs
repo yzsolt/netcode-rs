@@ -5,9 +5,11 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
 use chacha20poly1305::ChaCha20Poly1305;
 use chacha20poly1305::aead::Nonce;
+use thiserror::Error;
 
 use crate::common::*;
 use crate::crypto;
+use crate::crypto::MAC_BYTES;
 use crate::time::UtcTimestamp;
 use crate::token;
 
@@ -78,24 +80,19 @@ fn sequence_bytes_required(sequence: u64) -> u8 {
     0
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum PacketError {
-    InvalidPrivateKey,
-    InvalidPacket,
-    DecryptError(crypto::EncryptError),
-    GenericIO(io::Error),
-}
+    #[error("missing private key while decoding/encoding a non connection initiating packet")]
+    MissingPrivateKey,
 
-impl From<io::Error> for PacketError {
-    fn from(err: io::Error) -> Self {
-        PacketError::GenericIO(err)
-    }
-}
+    #[error("received packet with invalid type")]
+    InvalidPacketType,
 
-impl From<crypto::EncryptError> for PacketError {
-    fn from(err: crypto::EncryptError) -> Self {
-        PacketError::DecryptError(err)
-    }
+    #[error(transparent)]
+    EncryptError(#[from] crypto::EncryptError),
+
+    #[error(transparent)]
+    IoError(#[from] io::Error),
 }
 
 fn write_sequence<W>(out: &mut W, seq: u64) -> Result<usize, io::Error>
@@ -187,13 +184,13 @@ pub fn decode(
             PACKET_KEEPALIVE => Ok(Packet::KeepAlive(KeepAlivePacket::read(source_data)?)),
             PACKET_PAYLOAD => Ok(Packet::Payload(decoded_len)),
             PACKET_DISCONNECT => Ok(Packet::Disconnect),
-            PACKET_CONNECTION => Err(PacketError::InvalidPacket),
-            _ => Err(PacketError::InvalidPacket),
+            PACKET_CONNECTION => Err(PacketError::InvalidPacketType),
+            _ => Err(PacketError::InvalidPacketType),
         };
 
         packet.map(|p| (sequence, p))
     } else {
-        Err(PacketError::InvalidPrivateKey)
+        Err(PacketError::MissingPrivateKey)
     }
 }
 
@@ -250,7 +247,7 @@ pub fn encode(
 
         Ok(offset + crypt_write)
     } else {
-        Err(PacketError::InvalidPrivateKey)
+        Err(PacketError::MissingPrivateKey)
     }
 }
 
@@ -365,22 +362,13 @@ pub struct ChallengePacket {
     pub token_data: [u8; CHALLENGE_TOKEN_BYTES],
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ChallengeEncodeError {
-    Io(io::Error),
-    Encrypt(crypto::EncryptError),
-}
+    #[error(transparent)]
+    Io(#[from] io::Error),
 
-impl From<io::Error> for ChallengeEncodeError {
-    fn from(err: io::Error) -> Self {
-        ChallengeEncodeError::Io(err)
-    }
-}
-
-impl From<crypto::EncryptError> for ChallengeEncodeError {
-    fn from(err: crypto::EncryptError) -> Self {
-        ChallengeEncodeError::Encrypt(err)
-    }
+    #[error(transparent)]
+    Encrypt(#[from] crypto::EncryptError),
 }
 
 impl ChallengePacket {
@@ -390,8 +378,6 @@ impl ChallengePacket {
         challenge_sequence: u64,
         challenge_key: &Key,
     ) -> Result<Self, ChallengeEncodeError> {
-        const MAC_BYTES: usize = 16;
-
         let token = ChallengeToken::generate(client_id, connect_user_data);
         let mut scratch = [0; CHALLENGE_TOKEN_BYTES - MAC_BYTES];
         token.write(&mut io::Cursor::new(&mut scratch[..]))?;

@@ -18,23 +18,6 @@ use crate::error::*;
 use crate::server::connection::*;
 use crate::socket::*;
 
-/// Errors from creating a server.
-#[derive(Debug)]
-pub enum CreateError {
-    /// Address is already in use.
-    AddrInUse,
-    /// Address is not available(and probably already bound).
-    AddrNotAvailable,
-    /// Generic(other) io error occurred.
-    GenericIo(io::Error),
-}
-
-impl From<io::Error> for CreateError {
-    fn from(err: io::Error) -> Self {
-        CreateError::GenericIo(err)
-    }
-}
-
 pub type ClientId = u64;
 
 /// Describes event the server receives when calling `next_event(..)`.
@@ -137,42 +120,38 @@ where
         max_clients: u32,
         protocol_id: u64,
         private_key: &Key,
-    ) -> Result<Self, CreateError>
+    ) -> Result<Self, io::Error>
     where
         A: ToSocketAddrs,
     {
         let bind_addr = local_addr.to_socket_addrs().unwrap().next().unwrap();
         let mut socket_state = I::new_state();
-        match I::bind(&bind_addr, &mut socket_state) {
-            Ok(s) => {
-                let clients = vec![None; max_clients as usize];
+        let listen_socket = I::bind(&bind_addr, &mut socket_state)?;
 
-                trace!("Started server on {:?}", s.local_addr().unwrap());
+        let clients = vec![None; max_clients as usize];
 
-                Ok(Self {
-                    clients,
-                    internal: ServerInternal {
-                        socket_state,
-                        protocol_id,
-                        listen_socket: s,
-                        listen_addr: bind_addr,
-                        connect_key: *private_key,
-                        time: Instant::now(),
-                        challenge_sequence: 0,
-                        challenge_key: crypto::generate_key(),
-                        client_event_idx: 0,
-                    },
-                })
-            }
-            Err(e) => match e.kind() {
-                io::ErrorKind::AddrInUse => Err(CreateError::AddrInUse),
-                io::ErrorKind::AddrNotAvailable => Err(CreateError::AddrNotAvailable),
-                _ => Err(CreateError::GenericIo(e)),
+        trace!(
+            "Started server on {:?}",
+            listen_socket.local_addr().unwrap()
+        );
+
+        Ok(Self {
+            clients,
+            internal: ServerInternal {
+                socket_state,
+                protocol_id,
+                listen_socket,
+                listen_addr: bind_addr,
+                connect_key: *private_key,
+                time: Instant::now(),
+                challenge_sequence: 0,
+                challenge_key: crypto::generate_key(),
+                client_event_idx: 0,
             },
-        }
+        })
     }
 
-    /// Generates a connection token with `client_id` that expires after `expiration` with an optional `user_data``.
+    /// Generates a connection token with `client_id` that expires after `expiration` with an optional `user_data`
     pub fn generate_token(
         &mut self,
         expiration: Duration,
@@ -209,7 +188,7 @@ where
     /// Sends a packet to `client_id` specified.
     pub fn send(&mut self, client_id: ClientId, packet: &[u8]) -> Result<usize, SendError> {
         if packet.is_empty() || packet.len() > MAX_PAYLOAD_SIZE {
-            return Err(SendError::PacketSize);
+            return Err(SendError::InvalidPacketSize);
         }
 
         if let Some(client) = Self::find_client_by_id(&mut self.clients, client_id) {
@@ -237,10 +216,6 @@ where
         &mut self,
         out_packet: &mut [u8; MAX_PAYLOAD_SIZE],
     ) -> Result<Option<ServerEvent>, UpdateError> {
-        if out_packet.len() < MAX_PAYLOAD_SIZE {
-            return Err(UpdateError::PacketBufferTooSmall);
-        }
-
         let mut scratch = [0; MAX_PACKET_SIZE];
         let result = match self.internal.listen_socket.recv_from(&mut scratch) {
             Ok((len, addr)) => self.handle_io(&addr, &scratch[..len], out_packet),

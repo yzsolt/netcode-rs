@@ -391,9 +391,8 @@ where
 
     /// Sends a packet to connected server.
     pub fn send(&mut self, payload: &[u8]) -> Result<usize, SendError> {
-        match payload.len() {
-            0 | MAX_PAYLOAD_SIZE => return Err(SendError::PacketSize),
-            _ => (),
+        if payload.is_empty() || payload.len() > MAX_PAYLOAD_SIZE {
+            return Err(SendError::InvalidPacketSize);
         }
 
         if let InternalState::Disconnected = self.state {

@@ -2,6 +2,7 @@ use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
 
 use chacha20poly1305::XChaCha20Poly1305;
 use chacha20poly1305::aead::Nonce;
+use thiserror::Error;
 
 use std::io;
 use std::io::Write;
@@ -12,50 +13,31 @@ use crate::common::*;
 use crate::crypto;
 use crate::time::UtcTimestamp;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum GenerateError {
-    /// Too many connect addresses encoded.
-    MaxHostCount,
-    /// IO error occured when writing token.
-    GenericIO(io::Error),
-    /// Encryption of private data failed.
-    Encrypt(crypto::EncryptError),
+    #[error("too many connect addresses encoded")]
+    TooManyConnectAddresses,
+
+    #[error(transparent)]
+    IoError(#[from] io::Error),
+
+    #[error(transparent)]
+    Encrypt(#[from] crypto::EncryptError),
 }
 
-impl From<io::Error> for GenerateError {
-    fn from(err: io::Error) -> Self {
-        GenerateError::GenericIO(err)
-    }
-}
-
-impl From<crypto::EncryptError> for GenerateError {
-    fn from(err: crypto::EncryptError) -> Self {
-        GenerateError::Encrypt(err)
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum DecodeError {
-    /// Private key failed to decode auth data.
+    #[error("private key failed to decrypt auth data")]
     InvalidPrivateKey,
-    /// Invalid version number was supplied.
+
+    #[error("unexpected version string")]
     InvalidVersion,
-    /// IO error occured when reading token.
-    GenericIO(io::Error),
-    /// Decryption of private data failed.
-    Decrypt(crypto::EncryptError),
-}
 
-impl From<io::Error> for DecodeError {
-    fn from(err: io::Error) -> Self {
-        DecodeError::GenericIO(err)
-    }
-}
+    #[error(transparent)]
+    IoError(#[from] io::Error),
 
-impl From<crypto::EncryptError> for DecodeError {
-    fn from(err: crypto::EncryptError) -> Self {
-        DecodeError::Decrypt(err)
-    }
+    #[error(transparent)]
+    Decrypt(#[from] crypto::EncryptError),
 }
 
 const NETCODE_ADDRESS_NONE: u8 = 0;
@@ -191,7 +173,7 @@ impl ConnectToken {
         I: Into<String>,
     {
         if hosts.len() > MAX_SERVERS_PER_CONNECT {
-            return Err(GenerateError::MaxHostCount);
+            return Err(GenerateError::TooManyConnectAddresses);
         }
 
         let host_list = hosts.flat_map(|addr| {
@@ -240,7 +222,7 @@ impl ConnectToken {
         H: ExactSizeIterator<Item = SocketAddr>,
     {
         if hosts.len() > MAX_SERVERS_PER_CONNECT {
-            return Err(GenerateError::MaxHostCount);
+            return Err(GenerateError::TooManyConnectAddresses);
         }
 
         Self::generate_internal(
@@ -402,7 +384,7 @@ impl PrivateData {
         private_key: &Key,
     ) -> Result<Self, DecodeError> {
         let additional_data = generate_additional_data(protocol_id, expires)?;
-        let mut decoded = [0; CONNECT_TOKEN_PRIVATE_BYTES - crypto::ENCRYPT_EXTA_BYTES];
+        let mut decoded = [0; CONNECT_TOKEN_PRIVATE_BYTES - crypto::MAC_BYTES];
 
         crypto::decode::<XChaCha20Poly1305>(
             &mut decoded,
@@ -424,7 +406,7 @@ impl PrivateData {
         private_key: &Key,
     ) -> Result<(), GenerateError> {
         let additional_data = generate_additional_data(protocol_id, expiration)?;
-        let mut scratch = [0; CONNECT_TOKEN_PRIVATE_BYTES - crypto::ENCRYPT_EXTA_BYTES];
+        let mut scratch = [0; CONNECT_TOKEN_PRIVATE_BYTES - crypto::MAC_BYTES];
 
         self.write(&mut io::Cursor::new(&mut scratch[..]))?;
 

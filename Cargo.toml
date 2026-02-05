@@ -11,10 +11,11 @@ categories = ["network-programming", "game-development"]
 repository = "https://github.com/yzsolt/netcode-rs"
 
 [dependencies]
-log = "0.4"
 byteorder = "1.5"
 chacha20poly1305 = "0.10"
 getrandom = "0.4"
+log = "0.4"
+thiserror = "2.0"
 
 [dev-dependencies]
 env_logger = "0.11"

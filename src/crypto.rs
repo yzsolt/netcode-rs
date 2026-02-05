@@ -3,23 +3,17 @@ use crate::common::*;
 use chacha20poly1305::KeyInit;
 use chacha20poly1305::aead::generic_array::GenericArray;
 use chacha20poly1305::aead::{Aead, Nonce, Payload};
+use thiserror::Error;
 
-use std::io;
+pub const MAC_BYTES: usize = 16;
 
-pub const ENCRYPT_EXTA_BYTES: usize = 16;
-
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum EncryptError {
-    InvalidPublicKeySize,
+    #[error("invalid input/output buffers given")]
     BufferSizeMismatch,
-    IO(io::Error),
-    Failed,
-}
 
-impl From<io::Error> for EncryptError {
-    fn from(err: io::Error) -> Self {
-        EncryptError::IO(err)
-    }
+    #[error("internal encryption failure")]
+    Failed,
 }
 
 /// Generates a new random private key.
@@ -42,7 +36,7 @@ pub fn encode<T: Aead + KeyInit>(
     nonce: &Nonce<T>,
     key: &Key,
 ) -> Result<usize, EncryptError> {
-    if out.len() < data.len() + ENCRYPT_EXTA_BYTES {
+    if out.len() < data.len() + MAC_BYTES {
         return Err(EncryptError::BufferSizeMismatch);
     }
 
@@ -69,7 +63,7 @@ pub fn decode<T: Aead + KeyInit>(
     nonce: &Nonce<T>,
     key: &Key,
 ) -> Result<usize, EncryptError> {
-    if out.len() < data.len() - ENCRYPT_EXTA_BYTES {
+    if out.len() < data.len() - MAC_BYTES {
         return Err(EncryptError::BufferSizeMismatch);
     }
 
