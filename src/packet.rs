@@ -13,6 +13,8 @@ use crate::crypto::MAC_BYTES;
 use crate::time::UtcTimestamp;
 use crate::token;
 
+const ADDITIONAL_DATA_SIZE: usize = VERSION_STRING.len() + 8 + 1;
+
 #[derive(Clone, Copy, Debug)]
 pub enum PacketTypeId {
     ConnectionRequest = 0,
@@ -139,8 +141,8 @@ where
 fn get_additional_data(
     prefix: u8,
     protocol_id: u64,
-) -> Result<[u8; VERSION_LEN + 8 + 1], io::Error> {
-    let mut buffer = [0; VERSION_LEN + 8 + 1];
+) -> Result<[u8; ADDITIONAL_DATA_SIZE], io::Error> {
+    let mut buffer = [0; ADDITIONAL_DATA_SIZE];
 
     {
         let mut writer = io::Cursor::new(&mut buffer[..]);
@@ -293,7 +295,7 @@ pub fn encode(
 }
 
 pub struct ConnectionRequestPacket {
-    pub version: [u8; VERSION_LEN],
+    pub version: [u8; VERSION_STRING.len()],
     pub protocol_id: u64,
     pub token_expires: UtcTimestamp,
     pub nonce: token::ConnectTokenNonce,
@@ -315,7 +317,7 @@ impl ConnectionRequestPacket {
     where
         R: io::Read,
     {
-        let mut version = [0; VERSION_LEN];
+        let mut version = [0; VERSION_STRING.len()];
         source.read_exact(&mut version[..])?;
 
         let protocol_id = source.read_u64::<LittleEndian>()?;

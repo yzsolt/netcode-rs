@@ -62,7 +62,7 @@ impl TryFrom<u8> for HostAddressType {
     }
 }
 
-const ADDITIONAL_DATA_SIZE: usize = VERSION_LEN + 8 + 8;
+const ADDITIONAL_DATA_SIZE: usize = VERSION_STRING.len() + 8 + 8;
 
 /// Nonce for encrypting private connect token data using the `XChaCha20Poly1305` AEAD primitive
 pub type ConnectTokenNonce = [u8; 24];
@@ -329,8 +329,7 @@ impl ConnectToken {
     where
         R: io::Read,
     {
-        let mut version = [0; VERSION_LEN];
-
+        let mut version = [0; VERSION_STRING.len()];
         source.read_exact(&mut version)?;
 
         if &version != VERSION_STRING {
