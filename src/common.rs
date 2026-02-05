@@ -5,11 +5,12 @@ pub type Key = [u8; 32];
 
 pub const NETCODE_CONNECT_TOKEN_PRIVATE_BYTES: usize = 1024;
 
+/// Maximum number of server addresses a client can encode into a connection request packet
 pub const NETCODE_MAX_SERVERS_PER_CONNECT: usize = 16;
 
 /// Maximum size packet that is sent over the wire.
 pub const NETCODE_MAX_PACKET_SIZE: usize = 1200;
-/// Maximum size of a payload that can be sent(1175).
+/// Maximum size of a payload that can be sent (1175).
 pub const NETCODE_MAX_PAYLOAD_SIZE: usize =
     NETCODE_MAX_PACKET_SIZE - crypto::NETCODE_ENCRYPT_EXTA_BYTES - 8 - 1;
 

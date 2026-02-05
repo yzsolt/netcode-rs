@@ -2,21 +2,21 @@ use std::io;
 
 use crate::packet;
 
-/// Errors from calls to `next_event`().
+/// Errors from [`crate::server::Server::next_event`] and [`crate::client::Client::next_event`].
 #[derive(Debug)]
 pub enum UpdateError {
-    /// Packet buffer was too small to recieve the largest packet(`NETCODE_MAX_PAYLOAD_LEN` = 1775)
+    /// Packet buffer was too small to recieve the largest packet ([`crate::MAX_PAYLOAD_SIZE`])
     PacketBufferTooSmall,
-    /// An error happened when receiving a packet.
+    /// An error happened when receiving a packet
     RecvError(RecvError),
-    /// An error when sending(usually challenge response)
+    /// An error when sending (usually challenge response)
     SendError(SendError),
     /// An internal error occurred
     Internal(InternalError),
 }
 
+/// Errors internal to netcode
 #[derive(Debug)]
-/// Errors internal to netcode.
 pub enum InternalError {
     ChallengeEncodeError(packet::ChallengeEncodeError),
 }
@@ -24,26 +24,26 @@ pub enum InternalError {
 /// Errors from sending packets
 #[derive(Debug)]
 pub enum SendError {
-    /// Client Id used for sending didn't exist.
+    /// Client ID used for sending didn't exist
     InvalidClientId,
-    /// Failed to encode the packet for sending.
+    /// Failed to encode the packet for sending
     PacketEncodeError(packet::PacketError),
-    /// Packet is larger than [PACKET_MAX_PAYLOAD_SIZE](constant.NETCODE_MAX_PAYLOAD_SIZE.html) or equals zero.
+    /// Packet is larger than [`crate::MAX_PAYLOAD_SIZE`] or equals zero
     PacketSize,
-    /// Generic io error.
+    /// Generic IO error
     SocketError(io::Error),
-    /// Client/Server is disconnected and cannot send packets
+    /// Client/server is disconnected and cannot send packets
     Disconnected,
 }
 
 /// Errors from receiving packets
 #[derive(Debug)]
 pub enum RecvError {
-    /// Failed to decode packet.
+    /// Failed to decode packet
     PacketDecodeError(packet::PacketError),
-    /// We've already received this packet before.
+    /// We've already received this packet before
     DuplicateSequence,
-    /// IO error occured on the socket.
+    /// IO error occured on the socket
     SocketError(io::Error),
 }
 

@@ -214,22 +214,17 @@ impl ConnectToken {
     }
 
     /// Generates a new connection token.
+    ///
     /// # Arguments
-    /// `addrs`: List of allowed hosts to connect to.
     ///
-    /// `private_key`: Server private key that will be used to authenticate requests.
-    ///
-    /// `expiration`: How long this token is valid for.
-    ///
-    /// `timeout`: Time connection should wait before disconnecting.
-    ///
-    /// `nonce`: Nonce to use. Should be randomly generated for every token.
-    ///
-    /// `protocol`: Client specific protocol.
-    ///
-    /// `client_id`: Unique client identifier.
-    ///
-    /// `user_data`: Client specific userdata.
+    /// - `hosts`: List of allowed hosts to connect to.
+    /// - `private_key`: Server private key that will be used to authenticate requests.
+    /// - `expiration`: How long this token is valid for.
+    /// - `timeout`: Time connection should wait before disconnecting.
+    /// - `nonce`: Nonce to use. Should be randomly generated for every token.
+    /// - `protocol`: Client specific protocol.
+    /// - `client_id`: Unique client identifier.
+    /// - `user_data`: Client specific userdata.
     #[allow(clippy::too_many_arguments)]
     pub fn generate<H>(
         hosts: H,
@@ -296,7 +291,10 @@ impl ConnectToken {
     }
 
     /// Decodes the private data stored by this connection token.
-    /// `private_key` - Server's private key used to generate this token.
+    ///
+    /// # Arguments
+    ///
+    /// - `private_key`: Server's private key used to generate this token.
     pub fn decode(&mut self, private_key: &Key) -> Result<PrivateData, DecodeError> {
         PrivateData::decode(
             &self.private_data,
@@ -307,7 +305,7 @@ impl ConnectToken {
         )
     }
 
-    /// Encodes a ConnectToken into a `io::Write`.
+    /// Encodes a `ConnectToken` into a `io::Write`.
     pub fn write<W>(&self, out: &mut W) -> Result<(), io::Error>
     where
         W: io::Write,
@@ -326,7 +324,7 @@ impl ConnectToken {
         Ok(())
     }
 
-    /// Decodes a ConnectToken from an `io::Read`.
+    /// Decodes a `ConnectToken` from an `io::Read`.
     pub fn read<R>(source: &mut R) -> Result<Self, DecodeError>
     where
         R: io::Read,
