@@ -3,6 +3,9 @@ use crate::crypto;
 /// Key for the `ChaCha20Poly1305` and `XChaCha20Poly1305` AEAD algorithms used for encryption
 pub type Key = [u8; 32];
 
+/// Unique game/application identifier
+pub type ProtocolId = u64;
+
 pub const CONNECT_TOKEN_PRIVATE_BYTES: usize = 1024;
 
 /// Maximum number of server addresses a client can encode into a connection request packet

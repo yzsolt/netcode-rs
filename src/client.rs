@@ -435,7 +435,7 @@ mod test {
     use crate::token;
     use std::time::Duration;
 
-    const PROTOCOL_ID: u64 = 0xFFCC;
+    const PROTOCOL_ID: ProtocolId = 0xFFCC;
     const MAX_CLIENTS: u32 = 256;
     const CLIENT_ID: ClientId = 0xFFEEDD;
     const TIMEOUT: Duration = Duration::from_secs(15);

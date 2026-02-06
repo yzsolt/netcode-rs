@@ -141,7 +141,7 @@ where
 
 fn get_additional_data(
     prefix: u8,
-    protocol_id: u64,
+    protocol_id: ProtocolId,
 ) -> Result<[u8; ADDITIONAL_DATA_SIZE], io::Error> {
     let mut buffer = [0; ADDITIONAL_DATA_SIZE];
 
@@ -167,7 +167,7 @@ fn sequence_to_nonce(sequence: u64) -> [u8; 12] {
 
 pub fn decode(
     data: &[u8],
-    protocol_id: u64,
+    protocol_id: ProtocolId,
     private_key: Option<&Key>,
     out: &mut [u8; MAX_PAYLOAD_SIZE],
 ) -> Result<(u64, Packet), PacketError> {
@@ -240,7 +240,7 @@ pub fn decode(
 
 pub fn encode(
     out: &mut [u8],
-    protocol_id: u64,
+    protocol_id: ProtocolId,
     packet: &Packet,
     crypt_info: Option<(u64, &Key)>,
     payload: Option<&[u8]>,
@@ -297,7 +297,7 @@ pub fn encode(
 
 pub struct ConnectionRequestPacket {
     pub version: [u8; VERSION_STRING.len()],
-    pub protocol_id: u64,
+    pub protocol_id: ProtocolId,
     pub token_expires: UtcTimestamp,
     pub nonce: token::ConnectTokenNonce,
     pub private_data: [u8; CONNECT_TOKEN_PRIVATE_BYTES],

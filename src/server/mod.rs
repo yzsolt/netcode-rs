@@ -48,11 +48,11 @@ type ClientVec = Vec<Option<Connection>>;
 /// Netcode server object.
 /// # Example
 /// ```rust
-/// use netcode_rs::{UdpServer, ServerEvent, generate_key, MAX_PAYLOAD_SIZE};
+/// use netcode_rs::{UdpServer, ProtocolId, ServerEvent, generate_key, MAX_PAYLOAD_SIZE};
 /// use std::time::Duration;
 ///
 /// fn run_server() {
-///     const PROTOCOL_ID: u64 = 0xFFEE;
+///     const PROTOCOL_ID: ProtocolId = 0xFFEE;
 ///     const MAX_CLIENTS: u32 = 32;
 ///     let mut server = UdpServer::new("127.0.0.1:0",
 ///                                     MAX_CLIENTS,
@@ -91,7 +91,7 @@ struct ServerInternal<I> {
     listen_socket: I,
     listen_addr: SocketAddr,
 
-    protocol_id: u64,
+    protocol_id: ProtocolId,
     connect_key: Key,
 
     time: Instant,
@@ -116,7 +116,7 @@ where
     pub fn new<A>(
         local_addr: A,
         max_clients: u32,
-        protocol_id: u64,
+        protocol_id: ProtocolId,
         private_key: &Key,
     ) -> Result<Self, io::Error>
     where
@@ -689,7 +689,7 @@ mod test {
 
     use std::net::UdpSocket;
 
-    const PROTOCOL_ID: u64 = 0xFFCC;
+    const PROTOCOL_ID: ProtocolId = 0xFFCC;
     const MAX_CLIENTS: u32 = 256;
     const CLIENT_ID: ClientId = 0xFFEEDD;
     const TIMEOUT: Duration = Duration::from_secs(15);

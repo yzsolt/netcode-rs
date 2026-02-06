@@ -17,11 +17,11 @@
 //!
 //! # Server Example
 //! ```rust
-//! use netcode_rs::{UdpServer, ServerEvent, generate_key, MAX_PAYLOAD_SIZE};
+//! use netcode_rs::{UdpServer, ProtocolId, ServerEvent, generate_key, MAX_PAYLOAD_SIZE};
 //! use std::time::Duration;
 //!
 //! fn run_server() {
-//!     const PROTOCOL_ID: u64 = 0xFFEE;
+//!     const PROTOCOL_ID: ProtocolId = 0xFFEE;
 //!     const MAX_CLIENTS: u32 = 32;
 //!     let mut server = UdpServer::new("127.0.0.1:0",
 //!                                     MAX_CLIENTS,
@@ -92,12 +92,12 @@
 //!
 //! # Token Example
 //! ```
-//! use netcode_rs::{self, ClientId, ConnectToken, ConnectTokenNonce, generate_key};
+//! use netcode_rs::{self, ClientId, ConnectToken, ConnectTokenNonce, ProtocolId, generate_key};
 //! use std::io;
 //! use std::time::Duration;
 //!
 //! const EXPIRES: Duration = Duration::from_secs(30);
-//! const PROTOCOL_ID: u64 = 0xFFEE;
+//! const PROTOCOL_ID: ProtocolId = 0xFFEE;
 //! const TIMEOUT: Duration = Duration::from_secs(15);
 //!
 //! # fn get_client_id() -> ClientId { 0 }
@@ -123,10 +123,10 @@
 //!
 //! Alteratively if you already have a server you can generate a token like below:
 //! ```rust
-//! # use netcode_rs::{ClientId, UdpServer, generate_key};
+//! # use netcode_rs::{ClientId, UdpServer, ProtocolId, generate_key};
 //! use std::time::Duration;
 //!
-//! const PROTOCOL_ID: u64 = 0xFFEE;
+//! const PROTOCOL_ID: ProtocolId = 0xFFEE;
 //! const MAX_CLIENTS: u32 = 32;
 //! let mut server = UdpServer::new("127.0.0.1:0",
 //!                                 MAX_CLIENTS,
@@ -154,7 +154,7 @@ mod time;
 mod token;
 
 pub use crate::client::{Client, ClientEvent, State as ClientState, UdpClient};
-pub use crate::common::{Key, MAX_PACKET_SIZE, MAX_PAYLOAD_SIZE};
+pub use crate::common::{Key, MAX_PACKET_SIZE, MAX_PAYLOAD_SIZE, ProtocolId};
 pub use crate::crypto::generate_key;
 pub use crate::error::*;
 pub use crate::server::{ClientId, Server, ServerEvent, UdpServer};

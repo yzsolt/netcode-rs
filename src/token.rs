@@ -395,7 +395,7 @@ impl PrivateData {
 
     pub fn decode(
         encoded: &[u8; CONNECT_TOKEN_PRIVATE_BYTES],
-        protocol_id: u64,
+        protocol_id: ProtocolId,
         expires: &UtcTimestamp,
         nonce: &ConnectTokenNonce,
         private_key: &Key,
@@ -417,7 +417,7 @@ impl PrivateData {
     pub fn encode(
         &self,
         out: &mut [u8; CONNECT_TOKEN_PRIVATE_BYTES],
-        protocol_id: u64,
+        protocol_id: ProtocolId,
         expiration: &UtcTimestamp,
         nonce: &ConnectTokenNonce,
         private_key: &Key,

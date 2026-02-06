@@ -51,7 +51,7 @@ pub struct Channel {
     replay_protection: ReplayProtection,
     next_sequence: u64,
     addr: SocketAddr,
-    protocol_id: u64,
+    protocol_id: ProtocolId,
     client_idx: u32,
     max_clients: u32,
 }
@@ -67,7 +67,7 @@ impl Channel {
         send_key: &Key,
         recv_key: &Key,
         addr: &SocketAddr,
-        protocol_id: u64,
+        protocol_id: ProtocolId,
         client_idx: u32,
         max_clients: u32,
         time: Instant,
