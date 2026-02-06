@@ -1,9 +1,11 @@
-use crate::common::*;
-
-use chacha20poly1305::KeyInit;
-use chacha20poly1305::aead::generic_array::GenericArray;
-use chacha20poly1305::aead::{Aead, Nonce, Payload};
+use chacha20poly1305::{
+    KeyInit,
+    aead::{Aead, Nonce, Payload, generic_array::GenericArray},
+};
 use thiserror::Error;
+
+/// Key for the `ChaCha20Poly1305` and `XChaCha20Poly1305` AEAD algorithms used for encryption
+pub type Key = [u8; 32];
 
 pub const MAC_BYTES: usize = 16;
 

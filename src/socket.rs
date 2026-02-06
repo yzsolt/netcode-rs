@@ -1,6 +1,8 @@
-use std::io;
-use std::net::{SocketAddr, UdpSocket};
-use std::time::Duration;
+use std::{
+    io,
+    net::{SocketAddr, UdpSocket},
+    time::Duration,
+};
 
 pub trait SocketProvider<I> {
     fn bind(addr: &SocketAddr) -> Result<I, io::Error>;

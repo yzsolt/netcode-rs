@@ -1,18 +1,16 @@
-use std::io;
-use std::io::Write;
+use std::{io, io::Write};
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-
-use chacha20poly1305::ChaCha20Poly1305;
-use chacha20poly1305::aead::Nonce;
+use chacha20poly1305::{ChaCha20Poly1305, aead::Nonce};
 use thiserror::Error;
 
-use crate::ClientId;
-use crate::common::*;
-use crate::crypto;
-use crate::crypto::MAC_BYTES;
-use crate::time::UtcTimestamp;
-use crate::token;
+use crate::{
+    ClientId, MAX_PACKET_SIZE, MAX_PAYLOAD_SIZE,
+    common::{CHALLENGE_TOKEN_BYTES, CONNECT_TOKEN_PRIVATE_BYTES, ProtocolId, VERSION_STRING},
+    crypto::{self, Key, MAC_BYTES},
+    time::UtcTimestamp,
+    token,
+};
 
 const ADDITIONAL_DATA_SIZE: usize = VERSION_STRING.len() + 8 + 1;
 
@@ -637,9 +635,9 @@ mod test {
 
     #[test]
     fn test_conn_packet() {
+        use std::{net::SocketAddr, str::FromStr};
+
         use crate::token;
-        use std::net::SocketAddr;
-        use std::str::FromStr;
 
         let protocol_id = 0xFFCC;
 

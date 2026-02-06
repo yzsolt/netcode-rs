@@ -1,8 +1,5 @@
 use crate::crypto;
 
-/// Key for the `ChaCha20Poly1305` and `XChaCha20Poly1305` AEAD algorithms used for encryption
-pub type Key = [u8; 32];
-
 /// Unique game/application identifier
 pub type ProtocolId = u64;
 

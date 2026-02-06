@@ -1,13 +1,18 @@
-use crate::common::*;
-use crate::error::*;
-use crate::packet::{self, KeepAlivePacket, Packet};
-use crate::replay::ReplayProtection;
-use crate::socket::SocketProvider;
+use std::{
+    net::SocketAddr,
+    time::{Duration, Instant},
+};
 
-use log::*;
-use std::net::SocketAddr;
-use std::time::Duration;
-use std::time::Instant;
+use log::trace;
+
+use crate::{
+    MAX_PACKET_SIZE, MAX_PAYLOAD_SIZE, ProtocolId,
+    crypto::Key,
+    error::{RecvError, SendError},
+    packet::{self, KeepAlivePacket, Packet},
+    replay::ReplayProtection,
+    socket::SocketProvider,
+};
 
 const TIMEOUT: Duration = Duration::from_secs(5);
 const KEEPALIVE_RETRY: Duration = Duration::from_secs(1);

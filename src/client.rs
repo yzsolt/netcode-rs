@@ -1,14 +1,20 @@
-use crate::channel::{self, Channel};
-use crate::common::*;
-use crate::error::*;
-use crate::packet;
-use crate::socket::SocketProvider;
-use crate::token::ConnectToken;
+use std::{
+    io,
+    net::{SocketAddr, UdpSocket},
+    time::{Duration, Instant},
+};
 
-use log::*;
-use std::io;
-use std::net::{SocketAddr, UdpSocket};
-use std::time::{Duration, Instant};
+use log::{info, trace};
+
+use crate::{
+    MAX_PACKET_SIZE, MAX_PAYLOAD_SIZE,
+    channel::{self, Channel},
+    common::CHALLENGE_TOKEN_BYTES,
+    error::{RecvError, SendError, UpdateError},
+    packet,
+    socket::SocketProvider,
+    token::ConnectToken,
+};
 
 /// States represented by the client
 #[derive(Debug, Clone)]
@@ -429,11 +435,14 @@ where
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::crypto;
-    use crate::server::*;
-    use crate::token;
     use std::time::Duration;
+
+    use super::*;
+    use crate::{
+        Key, ProtocolId, crypto,
+        server::{ClientId, Server, ServerEvent},
+        token,
+    };
 
     const PROTOCOL_ID: ProtocolId = 0xFFCC;
     const MAX_CLIENTS: u32 = 256;

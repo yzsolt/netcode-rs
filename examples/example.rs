@@ -6,15 +6,17 @@
 //! Once done the string "exit" will cause the client to disconnect which the server will then
 //! terminate when it hears the disconnect from the client.
 
+use std::{
+    io::{self, BufRead},
+    sync::mpsc,
+    thread,
+    time::{Duration, Instant},
+};
+
 use netcode_rs::{
     ClientEvent, ClientId, ClientState, MAX_PAYLOAD_SIZE, ProtocolId, ServerEvent, UdpClient,
     UdpServer, generate_key,
 };
-
-use std::io::{self, BufRead};
-use std::sync::mpsc;
-use std::thread;
-use std::time::{Duration, Instant};
 
 const MAX_CLIENTS: u32 = 256; //Total number of clients we support
 const PROTOCOL_ID: ProtocolId = 0x00FF_DDEE; //Unique protocol id for our application.

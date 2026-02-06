@@ -1,17 +1,19 @@
-use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
+use std::{
+    io::{self, Write},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+    time::Duration,
+};
 
-use chacha20poly1305::XChaCha20Poly1305;
-use chacha20poly1305::aead::Nonce;
+use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
+use chacha20poly1305::{XChaCha20Poly1305, aead::Nonce};
 use thiserror::Error;
 
-use std::io;
-use std::io::Write;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::time::Duration;
-
-use crate::crypto;
-use crate::time::UtcTimestamp;
-use crate::{ClientId, common::*};
+use crate::{
+    ClientId, ProtocolId,
+    common::{CONNECT_TOKEN_PRIVATE_BYTES, MAX_SERVERS_PER_CONNECT, VERSION_STRING},
+    crypto::{self, Key},
+    time::UtcTimestamp,
+};
 
 #[derive(Debug, Error)]
 pub enum GenerateError {

@@ -1,22 +1,26 @@
 //! This module holds a netcode.io server implemenation and all of its related functions.
 
-use log::*;
-
-use std::io;
-use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
-use std::time::{Duration, Instant};
-
-use crate::common::*;
-use crate::crypto;
-use crate::packet;
-use crate::time::UtcTimestamp;
-use crate::token;
-
 mod connection;
-use crate::channel::{self, Channel};
-use crate::error::*;
-use crate::server::connection::*;
-use crate::socket::*;
+
+use std::{
+    io,
+    net::{SocketAddr, ToSocketAddrs, UdpSocket},
+    time::{Duration, Instant},
+};
+
+use log::{info, trace};
+
+use crate::{
+    channel::{self, Channel},
+    common::{MAX_PACKET_SIZE, MAX_PAYLOAD_SIZE, ProtocolId, VERSION_STRING},
+    crypto::{self, Key},
+    error::{RecvError, SendError, UpdateError},
+    packet,
+    server::connection::{Connection, ConnectionState},
+    socket::SocketProvider,
+    time::UtcTimestamp,
+    token,
+};
 
 /// Global, unique identifier of a client
 pub type ClientId = u64;
@@ -683,11 +687,14 @@ where
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::packet::*;
-    use crate::token;
-
     use std::net::UdpSocket;
+
+    use super::*;
+    use crate::{
+        common::CONNECT_TOKEN_PRIVATE_BYTES,
+        packet::{ChallengePacket, ConnectionRequestPacket, Packet, ResponsePacket},
+        token,
+    };
 
     const PROTOCOL_ID: ProtocolId = 0xFFCC;
     const MAX_CLIENTS: u32 = 256;

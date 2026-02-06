@@ -153,9 +153,11 @@ mod socket;
 mod time;
 mod token;
 
-pub use crate::client::{Client, ClientEvent, State as ClientState, UdpClient};
-pub use crate::common::{Key, MAX_PACKET_SIZE, MAX_PAYLOAD_SIZE, ProtocolId};
-pub use crate::crypto::generate_key;
-pub use crate::error::*;
-pub use crate::server::{ClientId, Server, ServerEvent, UdpServer};
-pub use crate::token::{ConnectToken, ConnectTokenNonce, DecodeError};
+pub use crate::{
+    client::{Client, ClientEvent, State as ClientState, UdpClient},
+    common::{MAX_PACKET_SIZE, MAX_PAYLOAD_SIZE, ProtocolId},
+    crypto::{Key, generate_key},
+    error::{RecvError, SendError, UpdateError},
+    server::{ClientId, Server, ServerEvent, UdpServer},
+    token::{ConnectToken, ConnectTokenNonce, DecodeError},
+};

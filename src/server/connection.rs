@@ -1,5 +1,4 @@
-use crate::ClientId;
-use crate::channel::Channel;
+use crate::{ClientId, channel::Channel};
 
 /// Current state of the client connection.
 #[derive(Clone, Debug)]
