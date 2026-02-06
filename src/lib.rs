@@ -92,7 +92,7 @@
 //!
 //! # Token Example
 //! ```
-//! use netcode_rs::{self, ConnectToken, ConnectTokenNonce, generate_key};
+//! use netcode_rs::{self, ClientId, ConnectToken, ConnectTokenNonce, generate_key};
 //! use std::io;
 //! use std::time::Duration;
 //!
@@ -100,7 +100,7 @@
 //! const PROTOCOL_ID: u64 = 0xFFEE;
 //! const TIMEOUT: Duration = Duration::from_secs(15);
 //!
-//! # fn get_client_id() -> u64 { 0 }
+//! # fn get_client_id() -> ClientId { 0 }
 //! # fn get_connect_token_nonce() -> ConnectTokenNonce { ConnectTokenNonce::default() }
 //! let private_key = generate_key(); //Note: You probably want to
 //!                                            //store this some where safe.
@@ -123,7 +123,7 @@
 //!
 //! Alteratively if you already have a server you can generate a token like below:
 //! ```rust
-//! # use netcode_rs::{UdpServer, generate_key};
+//! # use netcode_rs::{ClientId, UdpServer, generate_key};
 //! use std::time::Duration;
 //!
 //! const PROTOCOL_ID: u64 = 0xFFEE;
@@ -135,7 +135,7 @@
 //!
 //! const EXPIRE: Duration = Duration::from_secs(30);
 //! const TIMEOUT: Duration = Duration::from_secs(15);
-//! # fn get_client_id() -> u64 { 0 }
+//! # fn get_client_id() -> ClientId { 0 }
 //! let client_id = get_client_id(); //Unique u64 client id.
 //!
 //! let token = server.generate_token(EXPIRE, TIMEOUT, client_id, None).unwrap();
@@ -157,5 +157,5 @@ pub use crate::client::{Client, ClientEvent, State as ClientState, UdpClient};
 pub use crate::common::{Key, MAX_PACKET_SIZE, MAX_PAYLOAD_SIZE};
 pub use crate::crypto::generate_key;
 pub use crate::error::*;
-pub use crate::server::{Server, ServerEvent, UdpServer};
+pub use crate::server::{ClientId, Server, ServerEvent, UdpServer};
 pub use crate::token::{ConnectToken, ConnectTokenNonce, DecodeError};

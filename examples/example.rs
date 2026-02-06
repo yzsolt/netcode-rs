@@ -7,7 +7,8 @@
 //! terminate when it hears the disconnect from the client.
 
 use netcode_rs::{
-    ClientEvent, ClientState, MAX_PAYLOAD_SIZE, ServerEvent, UdpClient, UdpServer, generate_key,
+    ClientEvent, ClientId, ClientState, MAX_PAYLOAD_SIZE, ServerEvent, UdpClient, UdpServer,
+    generate_key,
 };
 
 use std::io::{self, BufRead};
@@ -20,7 +21,7 @@ const PROTOCOL_ID: u64 = 0x00FF_DDEE; //Unique protocol id for our application.
 const TOKEN_LIFETIME: Duration = Duration::from_secs(15); //Our token lives 15 seconds.
 const CONNECTION_TIMEOUT: Duration = Duration::from_secs(15); // Time in seconds connection should wait before disconnecting.
 
-const CLIENT_ID: u64 = 0x00DD_EEFF; //Single unique client id, you'll want to tie this into
+const CLIENT_ID: ClientId = 0x00DD_EEFF; //Single unique client id, you'll want to tie this into
 // your user store in production.
 
 const TICK_TIME: Duration = Duration::from_millis(16); //Tick every 16ms

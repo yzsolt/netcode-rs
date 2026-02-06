@@ -18,6 +18,7 @@ use crate::error::*;
 use crate::server::connection::*;
 use crate::socket::*;
 
+/// Global, unique identifier of a client
 pub type ClientId = u64;
 
 /// Describes event the server receives when calling `next_event(..)`.
@@ -151,7 +152,7 @@ where
         &mut self,
         expiration: Duration,
         timeout: Duration,
-        client_id: u64,
+        client_id: ClientId,
         user_data: Option<&token::UserData>,
     ) -> Result<token::ConnectToken, token::GenerateError> {
         let addr = if self.internal.listen_addr.port() == 0 {
@@ -690,7 +691,7 @@ mod test {
 
     const PROTOCOL_ID: u64 = 0xFFCC;
     const MAX_CLIENTS: u32 = 256;
-    const CLIENT_ID: u64 = 0xFFEEDD;
+    const CLIENT_ID: ClientId = 0xFFEEDD;
     const TIMEOUT: Duration = Duration::from_secs(15);
 
     struct TestHarness<I>
@@ -744,7 +745,7 @@ mod test {
                 TIMEOUT,
                 &nonce,
                 PROTOCOL_ID,
-                CLIENT_ID, //Client Id
+                CLIENT_ID,
                 None,
             )
             .unwrap()

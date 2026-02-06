@@ -9,9 +9,9 @@ use std::io::Write;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::time::Duration;
 
-use crate::common::*;
 use crate::crypto;
 use crate::time::UtcTimestamp;
+use crate::{ClientId, common::*};
 
 #[derive(Debug, Error)]
 pub enum GenerateError {
@@ -114,7 +114,7 @@ impl Clone for ConnectToken {
 /// Private data encapsulated by Connect token.
 pub struct PrivateData {
     /// Unique client id, determined by the server.
-    pub client_id: u64,
+    pub client_id: ClientId,
     /// Time connection should wait before disconnecting.
     pub timeout: Duration,
     /// Secondary host list to authoritatively determine which hosts clients can connect to.
@@ -158,23 +158,18 @@ fn generate_additional_data(
 }
 
 impl ConnectToken {
-    /// Generates a new connection token.
+    /// Generates a new connection token
+    ///
     /// # Arguments
-    /// `addrs`: List of allowed hosts to connect to in From<String> form.
     ///
-    /// `private_key`: Server private key that will be used to authenticate requests.
-    ///
-    /// `expire_sec`: How long this token is valid for in seconds.
-    ///
-    /// `timeout_sec`: Time in seconds connection should wait before disconnecting.
-    ///
-    /// `nonce`: Nonce to use. Should be randomly generated for every token.
-    ///
-    /// `protocol`: Client specific protocol.
-    ///
-    /// `client_id`: Unique client identifier.
-    ///
-    /// `user_data`: Client specific userdata.
+    /// - `hosts`: List of allowed hosts to connect to in From<String> form.
+    /// - `private_key`: Server private key that will be used to authenticate requests.
+    /// - `expiration`: How long this token is valid for.
+    /// - `timeout`: Time connection should wait before disconnecting.
+    /// - `nonce`: Nonce to use. Should be randomly generated for every token.
+    /// - `protocol`: Client specific protocol.
+    /// - `client_id`: Unique client identifier.
+    /// - `user_data`: Client specific userdata.
     #[allow(clippy::too_many_arguments)]
     pub fn generate_with_string<H, I>(
         hosts: H,
@@ -183,7 +178,7 @@ impl ConnectToken {
         timeout: Duration,
         nonce: &ConnectTokenNonce,
         protocol: u64,
-        client_id: u64,
+        client_id: ClientId,
         user_data: Option<&UserData>,
     ) -> Result<Self, GenerateError>
     where
@@ -233,7 +228,7 @@ impl ConnectToken {
         timeout: Duration,
         nonce: &ConnectTokenNonce,
         protocol: u64,
-        client_id: u64,
+        client_id: ClientId,
         user_data: Option<&UserData>,
     ) -> Result<Self, GenerateError>
     where
@@ -263,7 +258,7 @@ impl ConnectToken {
         timeout: Duration,
         nonce: &ConnectTokenNonce,
         protocol: u64,
-        client_id: u64,
+        client_id: ClientId,
         user_data: Option<&UserData>,
     ) -> Result<Self, GenerateError>
     where
@@ -371,7 +366,12 @@ impl ConnectToken {
 }
 
 impl PrivateData {
-    pub fn new<H>(client_id: u64, timeout: Duration, hosts: H, user_data: Option<&UserData>) -> Self
+    pub fn new<H>(
+        client_id: ClientId,
+        timeout: Duration,
+        hosts: H,
+        user_data: Option<&UserData>,
+    ) -> Self
     where
         H: Iterator<Item = SocketAddr>,
     {

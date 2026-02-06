@@ -7,6 +7,7 @@ use chacha20poly1305::ChaCha20Poly1305;
 use chacha20poly1305::aead::Nonce;
 use thiserror::Error;
 
+use crate::ClientId;
 use crate::common::*;
 use crate::crypto;
 use crate::crypto::MAC_BYTES;
@@ -353,7 +354,7 @@ impl ConnectionRequestPacket {
 }
 
 pub struct ChallengeToken {
-    pub client_id: u64,
+    pub client_id: ClientId,
     pub user_data: token::UserData,
 }
 
@@ -367,7 +368,7 @@ impl Clone for ChallengeToken {
 }
 
 impl ChallengeToken {
-    pub fn generate(client_id: u64, connect_user_data: &token::UserData) -> Self {
+    pub fn generate(client_id: ClientId, connect_user_data: &token::UserData) -> Self {
         Self {
             client_id,
             user_data: *connect_user_data,
@@ -416,7 +417,7 @@ pub enum ChallengeEncodeError {
 
 impl ChallengePacket {
     pub fn generate(
-        client_id: u64,
+        client_id: ClientId,
         connect_user_data: &token::UserData,
         challenge_sequence: u64,
         challenge_key: &Key,

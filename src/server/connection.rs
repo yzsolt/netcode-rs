@@ -1,5 +1,5 @@
+use crate::ClientId;
 use crate::channel::Channel;
-use crate::server;
 
 /// Current state of the client connection.
 #[derive(Clone, Debug)]
@@ -17,7 +17,7 @@ pub enum ConnectionState {
 /// Handle to client connection.
 #[derive(Clone)]
 pub struct Connection {
-    pub client_id: server::ClientId,
+    pub client_id: ClientId,
     pub state: ConnectionState,
     pub channel: Channel,
 }

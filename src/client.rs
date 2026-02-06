@@ -437,7 +437,7 @@ mod test {
 
     const PROTOCOL_ID: u64 = 0xFFCC;
     const MAX_CLIENTS: u32 = 256;
-    const CLIENT_ID: u64 = 0xFFEEDD;
+    const CLIENT_ID: ClientId = 0xFFEEDD;
     const TIMEOUT: Duration = Duration::from_secs(15);
 
     struct TestHarness<I>
@@ -489,7 +489,7 @@ mod test {
                 TIMEOUT,
                 &nonce,
                 PROTOCOL_ID,
-                CLIENT_ID, //Client Id
+                CLIENT_ID,
                 None,
             )
             .unwrap()
