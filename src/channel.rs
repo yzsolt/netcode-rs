@@ -9,8 +9,8 @@ use std::net::SocketAddr;
 use std::time::Duration;
 use std::time::Instant;
 
-pub const TIMEOUT: Duration = Duration::from_secs(5);
-pub const KEEPALIVE_RETRY: Duration = Duration::from_secs(1);
+const TIMEOUT: Duration = Duration::from_secs(5);
+const KEEPALIVE_RETRY: Duration = Duration::from_secs(1);
 
 #[derive(Clone, Debug)]
 pub struct KeepAliveState {
