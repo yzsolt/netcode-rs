@@ -12,7 +12,7 @@ use std::time::Instant;
 const TIMEOUT: Duration = Duration::from_secs(5);
 const KEEPALIVE_RETRY: Duration = Duration::from_secs(1);
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct KeepAliveState {
     pub last_sent: Instant,
     pub last_response: Instant,
